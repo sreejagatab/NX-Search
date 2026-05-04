@@ -58,13 +58,14 @@ describe('ResultCard', () => {
     expect(marks.length).toBeGreaterThan(0)
   })
 
-  it('copies content to clipboard', async () => {
+  it('copies content to clipboard wrapped in code fence for python domain', async () => {
     const writeSpy = vi.spyOn(navigator.clipboard, 'writeText')
     render(<ResultCard result={mockResult} query="" />)
     const card = screen.getByTestId('result-card')
     fireEvent.mouseEnter(card)
     const copyBtn = screen.getByTitle('Copy content')
     fireEvent.click(copyBtn)
-    expect(writeSpy).toHaveBeenCalledWith(mockResult.content)
+    expect(writeSpy).toHaveBeenCalledWith(expect.stringContaining(mockResult.content))
+    expect(writeSpy).toHaveBeenCalledWith(expect.stringContaining('```python'))
   })
 })

@@ -1,0 +1,231 @@
+ All deliverables complete. Here's a summary:
+
+  ---                                                                                                                  nx-search is built and ready at E:\newfolder4\nx-search
+                                                                                                                       All checks pass:                                                                                                     - npm run build — Vite bundle: 187KB JS / 18KB CSS (gzipped: 60KB / 4KB)                                             - npm test — 36/36 tests pass across 6 test files                                                                                                                                                                                         What was built:                                                                                                    
+  ┌────────────┬──────────────────────────────────────────────────────────────────────────────────────────────────┐
+  │   Layer    │                                              Files                                               │
+  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ API        │ client.ts (fetch wrapper + SSE stream) · search.ts (all 6 endpoints typed)                       │
+  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Hooks      │ useSearch (debounce, URL sync, sort, pagination) · useSuggest · useAskBrain (SSE)                │
+  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Components │ SearchBar, DomainFilter, ResultCard (expand modal, highlight, copy), ResultList, AskBrain,       │
+  │            │ StatsChip, Skeleton                                                                              │
+  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Pages      │ Home (centered bar, domain pills, recent searches) · Results (sticky header, sidebar filters,    │
+  │            │ Ask Brain panel)                                                                                 │
+  ├────────────┼──────────────────────────────────────────────────────────────────────────────────────────────────┤
+  │ Infra      │ Dockerfile (nginx, port 3002) · docker-compose.yml · .env.example                                │
+  └────────────┴──────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+  Quick start:
+  cp .env.example .env   # add VITE_NEURONX_API_KEY
+  npm install && npm run dev
+  # or: docker compose up --build
+
+● Server is running and the browser should be open. The app is live at http://localhost:3002.
+
+  You should see:
+  - The Home page — large centered search bar with Semantic/Pattern mode toggle, domain filter pills below, and the    stats chip in the header showing "257K patterns · 210K vectors"
+  - Type a query and press Enter (or wait 300ms) to go to the results page                                             - On the Results page — sticky header with the search bar, domain checkboxes on the left sidebar, result cards with
+   confidence bars and domain badges, and an Ask Brain button top-right that streams a Brain 72B answer
+
+  If you haven't set VITE_NEURONX_API_KEY in a .env file yet, API calls will get 401s — copy .env.example to .env and
+   fill in your key, then the server will hot-reload automatically.
+
+
+● Here's a complete, specific audit of every meaningful improvement, organized by category and impact:
+
+  ---
+  1. Search Quality
+                                                                                                                       Hybrid mode (highest impact) — run both /api/search and /api/search/semantic in parallel, deduplicate by id, merge
+  with RRF scoring (1/(k+rank_semantic) + 1/(k+rank_pattern)). Add a third mode toggle "Hybrid" alongside              Semantic/Pattern. This dramatically improves recall without sacrificing precision.
+
+  Multi-domain selection — currently only one domain at a time. Change domain: string → domains: string[] in URL
+  state (?domain=python,security). Filter on the client side after fetching — no API change needed.
+
+  Configurable result limit — the limit param is hardcoded at 20. Fetch 50 but paginate 20 at a time on the client,
+  so paging is instant without re-fetching. Add a "Show 20 / 50 / 100" dropdown.
+
+  Similarity threshold slider — /api/search/semantic accepts threshold=0.7 but it's hardcoded. Expose a slider (0.5 →
+   0.95) in the sidebar. Low threshold = more results, high = tighter matches.
+
+  "No results" suggestions — when results are empty, automatically fire a second looser search (threshold=0.5, no
+  domain) and show "Also found X results without domain filter — show them?" as a one-click recovery.
+
+  ---
+  2. UX & Interaction
+
+  Keyboard navigation in suggestions dropdown — ↑/↓ to move, Enter to select, Tab to complete. Currently arrow keys
+  do nothing in the dropdown. Needs a selectedIndex state in SearchBar.tsx.
+
+  Keyboard navigation in results — j/k to focus next/prev card, Enter to expand, c to copy, Escape to close modal.
+  Add a global keydown handler in Results.tsx.
+
+  Inline filter chips — after search, show active filters as removable chips below the search bar: python × ·
+  semantic × · similarity ↓ ×. Clicking × clears that param. Much clearer than sidebar state.
+
+  Stale-while-revalidate — when query/domain changes, show previous results dimmed while new results load, instead of
+   blanking to skeleton. Prevents the flash of empty state.
+
+  Search-within-results — a secondary text input in the sidebar that client-filters the already-fetched results by
+  substring. Zero latency, very useful for narrowing 50 results.
+
+  Infinite scroll — replace the prev/next pagination with an IntersectionObserver on a sentinel div at the bottom.
+  Load the next page of already-fetched results as user scrolls. Better mobile UX.
+
+  Hover preview popover — on desktop, hovering a card for 600ms shows a popover with the full content, rather than
+  requiring a click to expand the modal.
+
+  ---
+  3. Ask Brain Enhancements
+
+  Markdown rendering — the Brain 72B answer almost certainly contains markdown (headers, code fences, bold). Right
+  now it renders as whitespace-pre-wrap plain text. Add a minimal markdown renderer (just marked or a ~50-line regex
+  renderer) so **bold**, ```code```, # headings display properly.
+
+  Inline citations — pass source and id with each context result. After streaming finishes, scan the answer for [1],
+  [2] etc. and render them as click-through links to the source cards. This makes the panel actually useful as a
+  research tool.
+
+  Follow-up query chips — after the answer finishes streaming, show 3 suggested follow-up searches as clickable chips
+   derived from the answer text. Each chip runs a new search.
+
+  Copy answer button — a copy button on the answer panel, currently missing.
+
+  Re-generate / refine — a "Regenerate" button to re-run the ask without closing/reopening the panel, and a small
+  text input to modify the question independently of the search query.
+
+  Persistent answer — currently reset() fires when the panel closes. Instead, keep the last answer and mark it stale
+  if the query changes. User can reopen the panel and see the previous answer while the new one generates.
+
+  ---
+  4. Result Card
+
+  Syntax highlighting in modal — when content looks like code (contains def , function , class , import ), apply a
+  minimal language-aware highlight. Prism.js (15KB) or a regex-based highlighter. The modal's <pre> block is the
+  right place.
+
+  Language-aware copy — when copying, auto-wrap in a markdown code fence with the detected language:
+  ```python\n{content}\n```. Saves a step when pasting into docs/chat.
+
+  Domain color-coded left border — add a 3px left border on each card colored by domain (amber for python, blue for
+  JS, red for security, etc.). Instantly scannable at a glance, more visual than just the badge.
+
+  Similarity ring instead of flat number — replace 85% sim text with a small SVG donut ring. More spatially compact
+  and visually distinctive. The confidence bar below it stays.
+
+  Card stagger animation — CSS animation-delay: calc(var(--i) * 40ms) with a fade+translate-up on each card. Makes
+  results feel fast and polished rather than appearing all at once.
+
+  ---
+  5. Result List & Sidebar
+
+  Domain distribution mini-bar — in the sidebar, below the filter list, show a small stacked horizontal bar of domain
+   counts for the current results. Instant visual overview of what the search found.
+
+  Source filter — extract unique source values from results and add a "Sources" section in the sidebar with
+  checkboxes (github, stackoverflow, arxiv, etc.).
+
+  Min confidence filter — a range slider (0% → 100%) in the sidebar that hides results below the threshold
+  client-side. No re-fetch needed.
+
+  Result count per domain badge — the current checkbox sidebar shows counts; also show them as small badges on the
+  domain pills on the Home page so users know before they filter.
+
+  ---
+  6. Performance & Caching
+
+  In-memory result cache — a Map<string, SearchResponse> keyed by ${query}|${domain}|${mode} in useSearch. Cache the
+  last 20 queries in memory (not localStorage — too slow). Navigating back to a previous query is instant.
+
+  Parallel initial data fetch — Results.tsx fires fetchDomains() and fetchStats() sequentially in separate useEffect
+  calls. Combine into a single Promise.all on mount.
+
+  Prefetch on suggestion hover — when user hovers a suggestion in the dropdown, start the fetch for that query in the
+   background. If they click it, the result is already cached.
+
+  type: "module" in package.json — fixes the PostCSS warning, eliminates a re-parse on every startup.
+
+  ---
+  7. Multi-Query & Analytics
+
+  Query history with metadata — store recent searches as { q, mode, domain, resultCount, queryTimeMs, timestamp }
+  objects (not just strings). Show result count and time next to each recent search on the Home page.
+
+  Search analytics panel — a small collapsible "Session stats" section on the Home page showing: total searches this
+  session, average query time, most-searched domain, fastest/slowest query. All from localStorage.
+
+  JSON export — a "Export results" button that downloads the current result set as nx-search-{query}.json. Useful for
+   researchers.
+
+  Share result deep link — add ?result={id} to the URL. On load, if result param is present, auto-expand that card's
+  modal.
+
+  ---
+  8. Accessibility & Reliability
+
+  aria-live="polite" on result count — screen readers currently miss result count changes. Adding aria-live="polite"
+  to the "N results" element announces updates.
+
+  Focus trap in modal — the expanded card modal doesn't trap focus. Tab can escape it. Add a focus trap (cycle
+  through focusable elements inside the modal), and restore focus to the originating card on close.
+
+  Retry on API error — the error state shows a message but no recovery. Add a "Retry" button that re-fires the last
+  search. Also show error type: "Network error" vs "401 Unauthorized" vs "Server error".
+
+  Rate limit (429) handling — detect 429 responses in client.ts and show a countdown banner: "Rate limited — retry in
+   30s" with auto-retry.
+
+  Offline detection — window.addEventListener('online'/'offline') to show a banner "No internet connection — showing
+  cached results" and disable the search input.
+
+  React error boundary — wrap <ResultList> in an error boundary so a crash in one card doesn't blank the whole page.
+
+  ---
+  9. Visual Polish
+
+  Glassmorphism header — the sticky header currently uses bg-bg/95 backdrop-blur. Enhance with a subtle gradient fade
+   at the bottom edge so content scrolls under it cleanly.
+
+  Loading progress bar — a thin amber progress bar at the very top of the page (like YouTube's red bar) during
+  search, instead of / in addition to skeleton cards.
+
+  Empty state illustration — replace the ∅ text with a simple inline SVG (a network graph or neural pattern motif)
+  with a short message.
+
+  Smooth mode toggle — the Semantic/Pattern toggle is two separate buttons. Replace with a pill toggle that slides
+  the active indicator — more tactile.
+
+  Domain badge icons — small inline icons next to domain names (🐍 python, 🔐 security, 🏗️ architecture). Or
+  emoji-free: small colored dots which are already there but could be SVG icons.
+
+  ---
+  Priority order if implementing incrementally
+
+  ┌─────┬──────────────────────────────┬────────┬───────────┐
+  │  #  │            Change            │ Effort │  Impact   │
+  ├─────┼──────────────────────────────┼────────┼───────────┤
+  │ 1   │ Markdown in Ask Brain        │ Low    │ High      │
+  ├─────┼──────────────────────────────┼────────┼───────────┤
+  │ 2   │ Keyboard nav in suggestions  │ Low    │ High      │
+  ├─────┼──────────────────────────────┼────────┼───────────┤
+  │ 3   │ In-memory result cache       │ Low    │ High      │
+  ├─────┼──────────────────────────────┼────────┼───────────┤
+  │ 4   │ Stale-while-revalidate       │ Medium │ High      │
+  ├─────┼──────────────────────────────┼────────┼───────────┤
+  │ 5   │ Hybrid search mode           │ Medium │ Very High │
+  ├─────┼──────────────────────────────┼────────┼───────────┤
+  │ 6   │ Multi-domain select          │ Low    │ High      │
+  ├─────┼──────────────────────────────┼────────┼───────────┤
+  │ 7   │ Similarity threshold slider  │ Low    │ Medium    │
+  ├─────┼──────────────────────────────┼────────┼───────────┤
+  │ 8   │ Fetch 50, page client-side   │ Low    │ Medium    │
+  ├─────┼──────────────────────────────┼────────┼───────────┤
+  │ 9   │ Inline citations in Brain    │ Medium │ High      │
+  ├─────┼──────────────────────────────┼────────┼───────────┤
+  │ 10  │ Syntax highlighting in modal │ Low    │ Medium    │
+  └─────┴──────────────────────────────┴────────┴───────────┘
+
+  Want me to implement any of these — individually or in a batch?
+

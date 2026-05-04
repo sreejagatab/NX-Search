@@ -27,7 +27,7 @@ export interface SuggestResponse {
   suggestions: string[]
 }
 
-export type SearchMode = 'semantic' | 'pattern'
+export type SearchMode = 'semantic' | 'pattern' | 'hybrid'
 
 export type SortField = 'similarity' | 'confidence' | 'domain'
 

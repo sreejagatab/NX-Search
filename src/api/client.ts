@@ -1,6 +1,21 @@
 const BASE_URL = import.meta.env.VITE_NEURONX_API_URL ?? 'https://neuronx.jagatab.uk'
 const API_KEY = import.meta.env.VITE_NEURONX_API_KEY ?? ''
 
+export class ApiError extends Error {
+  constructor(public status: number, message: string) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+function friendlyError(status: number, text: string): string {
+  if (status === 401) return '401 — Invalid API key. Check your VITE_NEURONX_API_KEY in .env'
+  if (status === 403) return '403 — Access denied'
+  if (status === 429) return '429 — Rate limited. Please wait a moment before retrying'
+  if (status >= 500) return `${status} — Server error. NeuronX may be temporarily unavailable`
+  return `${status}: ${text}`
+}
+
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     ...init,
@@ -12,7 +27,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   })
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText)
-    throw new Error(`${res.status}: ${text}`)
+    throw new ApiError(res.status, friendlyError(res.status, text))
   }
   return res.json() as Promise<T>
 }
@@ -27,7 +42,7 @@ export function apiStream(path: string, body: unknown, onToken: (token: string) 
     body: JSON.stringify(body),
     signal,
   }).then(async (res) => {
-    if (!res.ok) throw new Error(`${res.status}: ${res.statusText}`)
+    if (!res.ok) throw new ApiError(res.status, friendlyError(res.status, res.statusText))
     if (!res.body) return
     const reader = res.body.getReader()
     const decoder = new TextDecoder()
@@ -46,9 +61,7 @@ export function apiStream(path: string, body: unknown, onToken: (token: string) 
               const parsed = JSON.parse(data)
               const token = parsed.token ?? parsed.text ?? parsed.content ?? data
               onToken(token)
-            } catch {
-              onToken(data)
-            }
+            } catch { onToken(data) }
           }
         }
       }

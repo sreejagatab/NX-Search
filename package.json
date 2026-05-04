@@ -2,6 +2,7 @@
   "name": "nx-search",
   "version": "1.0.0",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
@@ -10,6 +11,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@types/dompurify": "3.0.5",
+    "@types/prismjs": "1.26.6",
+    "dompurify": "3.4.2",
+    "marked": "18.0.3",
+    "prismjs": "1.30.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.26.2"

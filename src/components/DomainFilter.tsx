@@ -1,8 +1,8 @@
 interface Props {
   domains: string[]
-  activeDomain: string
+  activeDomains: string[]
   domainCounts?: Record<string, number>
-  onChange: (domain: string) => void
+  onChange: (domains: string[]) => void
   variant?: 'pills' | 'checkboxes'
 }
 
@@ -15,7 +15,23 @@ const DOMAIN_COLORS: Record<string, string> = {
   rust: 'bg-orange-900/40 text-orange-300 border-orange-700',
   go: 'bg-cyan-900/40 text-cyan-300 border-cyan-700',
   java: 'bg-red-900/30 text-red-200 border-red-600',
+  sql: 'bg-green-900/40 text-green-300 border-green-700',
+  bash: 'bg-gray-800 text-gray-300 border-gray-600',
   default: 'bg-gray-800 text-gray-300 border-gray-600',
+}
+
+export const DOMAIN_BORDER_COLOR: Record<string, string> = {
+  python: 'border-l-blue-600',
+  javascript: 'border-l-yellow-500',
+  security: 'border-l-red-600',
+  architecture: 'border-l-purple-600',
+  typescript: 'border-l-blue-500',
+  rust: 'border-l-orange-600',
+  go: 'border-l-cyan-600',
+  java: 'border-l-red-500',
+  sql: 'border-l-green-600',
+  bash: 'border-l-gray-600',
+  default: 'border-l-gray-700',
 }
 
 export function domainColor(domain: string): string {
@@ -30,16 +46,24 @@ export function DomainBadge({ domain }: { domain: string }) {
   )
 }
 
-export function DomainFilter({ domains, activeDomain, domainCounts, onChange, variant = 'pills' }: Props) {
-  const all = ['', ...domains]
+export function DomainFilter({ domains, activeDomains, domainCounts, onChange, variant = 'pills' }: Props) {
+  const toggle = (d: string) => {
+    if (d === '') { onChange([]); return }
+    const next = activeDomains.includes(d)
+      ? activeDomains.filter(x => x !== d)
+      : [...activeDomains, d]
+    onChange(next)
+  }
+
+  const isActive = (d: string) => d === '' ? activeDomains.length === 0 : activeDomains.includes(d)
 
   if (variant === 'checkboxes') {
     return (
       <div className="space-y-1.5">
         <button
-          onClick={() => onChange('')}
+          onClick={() => onChange([])}
           className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
-            activeDomain === '' ? 'bg-amber-400/10 text-amber-400' : 'text-gray-400 hover:bg-card hover:text-gray-200'
+            activeDomains.length === 0 ? 'bg-amber-400/10 text-amber-400' : 'text-gray-400 hover:bg-card hover:text-gray-200'
           }`}
         >
           <span>All domains</span>
@@ -50,12 +74,17 @@ export function DomainFilter({ domains, activeDomain, domainCounts, onChange, va
         {domains.map(d => (
           <button
             key={d}
-            onClick={() => onChange(activeDomain === d ? '' : d)}
+            onClick={() => toggle(d)}
             className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
-              activeDomain === d ? 'bg-amber-400/10 text-amber-400' : 'text-gray-400 hover:bg-card hover:text-gray-200'
+              isActive(d) ? 'bg-amber-400/10 text-amber-400' : 'text-gray-400 hover:bg-card hover:text-gray-200'
             }`}
           >
-            <span className="capitalize">{d}</span>
+            <div className="flex items-center gap-2">
+              <span className={`w-3 h-3 rounded-sm border flex items-center justify-center shrink-0 ${isActive(d) ? 'bg-amber-400 border-amber-400' : 'border-gray-600'}`}>
+                {isActive(d) && <span className="text-black text-[8px] leading-none">✓</span>}
+              </span>
+              <span className="capitalize">{d}</span>
+            </div>
             {domainCounts?.[d] !== undefined && (
               <span className="text-xs text-gray-500">{domainCounts[d]}</span>
             )}
@@ -67,12 +96,12 @@ export function DomainFilter({ domains, activeDomain, domainCounts, onChange, va
 
   return (
     <div className="flex flex-wrap gap-2">
-      {all.map(d => (
+      {(['', ...domains] as string[]).map(d => (
         <button
           key={d || 'all'}
-          onClick={() => onChange(d)}
+          onClick={() => toggle(d)}
           className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-            activeDomain === d
+            isActive(d)
               ? 'bg-amber-400 text-black border-amber-400 font-medium'
               : 'bg-card text-gray-400 border-border hover:border-amber-400/50 hover:text-gray-200'
           }`}
