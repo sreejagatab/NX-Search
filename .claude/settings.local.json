@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem \"E:\\\\newfolder4\\\\nx-search\" -ErrorAction SilentlyContinue | Select-Object Name; if \\(!\\(Test-Path \"E:\\\\newfolder4\\\\nx-search\"\\)\\) { \"MISSING\" } else { \"EXISTS\" })"
+    ]
+  }
+}
