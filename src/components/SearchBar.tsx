@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useSuggest } from '../hooks/useSuggest'
+import { useVoiceSearch, isVoiceSupported } from '../hooks/useVoiceSearch'
 import { OPERATOR_EXAMPLES } from '../lib/parseOperators'
 import type { SearchMode, FocusMode } from '../types'
 
@@ -96,6 +97,12 @@ export function SearchBar({ query, mode, domains = [], focusMode = 'research', o
   const isLg = size === 'lg'
   const activeDescendant = selectedIndex >= 0 ? `${listboxId}-opt-${selectedIndex}` : undefined
 
+  const voice = useVoiceSearch((transcript) => {
+    setLocalQuery(transcript)
+    onQueryChange(transcript)
+    setShowSuggestions(false)
+  })
+
   return (
     <div className="relative w-full" role="search">
       <div className={`relative flex items-center bg-card border border-border rounded-xl overflow-hidden transition-colors focus-within:border-amber-400/50 ${isLg ? 'shadow-lg' : ''}`}>
@@ -130,6 +137,21 @@ export function SearchBar({ query, mode, domains = [], focusMode = 'research', o
         )}
         {onFocusModeChange && (
           <FocusPills mode={focusMode} onChange={onFocusModeChange} />
+        )}
+        {isVoiceSupported() && (
+          <button
+            type="button"
+            onClick={voice.state === 'listening' ? voice.stop : voice.start}
+            aria-label={voice.state === 'listening' ? 'Stop voice input' : 'Start voice search'}
+            title={voice.state === 'listening' ? 'Stop listening' : 'Voice search'}
+            className={`mr-1 w-6 h-6 flex items-center justify-center rounded-full transition-all shrink-0 ${
+              voice.state === 'listening'
+                ? 'text-red-400 bg-red-400/20 border border-red-400/50 animate-pulse'
+                : 'text-gray-500 hover:text-amber-400 border border-transparent hover:border-border'
+            }`}
+          >
+            {voice.state === 'listening' ? '⏹' : '🎙'}
+          </button>
         )}
         <button
           type="button"
