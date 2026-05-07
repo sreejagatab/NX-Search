@@ -300,7 +300,7 @@ function ExpandedModal({ result, query, lang, onClose }: {
             )}
             {lang && <span className="text-xs text-gray-600 font-mono">{lang}</span>}
           </div>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-200 transition-colors text-lg leading-none">✕</button>
+          <button onClick={onClose} data-testid="modal-close" aria-label="Close" className="text-gray-500 hover:text-gray-200 transition-colors text-lg leading-none">✕</button>
         </div>
 
         <div className="flex items-center gap-4 mb-4 text-sm text-gray-500">

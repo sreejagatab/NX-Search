@@ -46,9 +46,9 @@ describe('ResultCard', () => {
   it('closes modal on ✕ click', () => {
     render(<ResultCard result={mockResult} query="" />)
     fireEvent.click(screen.getByTestId('result-card'))
-    const closeBtn = screen.getByText('✕')
-    fireEvent.click(closeBtn)
-    expect(screen.queryByText(/Similarity/)).toBeNull()
+    expect(screen.getByText(/Relevance/)).toBeTruthy()
+    fireEvent.click(screen.getByTestId('modal-close'))
+    expect(screen.queryByText(/Relevance/)).toBeNull()
   })
 
   it('highlights query terms in snippet', () => {
