@@ -31,10 +31,16 @@ export function Results() {
         onClose={() => p.setPaletteOpen(false)}
         mode={search.mode}
         focusMode={search.focusMode}
+        depth={search.depth}
         onSetMode={search.setMode}
         onSetSort={search.setSort}
         onSetFocusMode={search.setFocusMode}
+        onSetDepth={search.setDepth}
         onToggleAiMode={p.toggleAiMode}
+        onOpenAnalytics={p.openAnalytics}
+        onOpenUrlSummary={() => p.setUrlSummaryOpen(true)}
+        onOpenDeepResearch={search.query ? () => p.setDeepResearchOpen(true) : undefined}
+        onOpenCompare={search.query && search.allResults.length > 0 ? () => p.setCompareOpen(true) : undefined}
         onToggleCollections={p.openCollections}
         onExport={search.allResults.length > 0 ? p.exportJson : undefined}
         onToggleTheme={p.cycleTheme}

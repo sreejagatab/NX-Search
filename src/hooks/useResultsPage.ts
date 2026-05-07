@@ -99,17 +99,26 @@ export function useResultsPage() {
     }
   }, [search.query, search.loading, search.total, search.mode, search.domains, search.queryTimeMs])
 
+  // Auto-close Compare and Deep Research when query changes (stale results)
+  useEffect(() => {
+    setCompareOpen(false)
+    setDeepResearchOpen(false)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search.query])
+
   // Global keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') { e.preventDefault(); setPaletteOpen(v => !v) }
       if (e.altKey && e.key === 'a') { e.preventDefault(); toggleAiMode() }
       if (e.altKey && e.key === 'c') { e.preventDefault(); openCollections() }
+      if (e.altKey && e.key === 'r') { e.preventDefault(); if (search.query) setDeepResearchOpen(v => !v) }
+      if (e.altKey && e.key === 'v') { e.preventDefault(); if (search.query && search.allResults.length > 0) setCompareOpen(v => !v) }
     }
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [search.query, search.allResults.length])
 
   const toggleAiMode = useCallback(() => {
     setAiMode(prev => {

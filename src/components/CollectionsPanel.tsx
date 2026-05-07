@@ -26,6 +26,8 @@ export function CollectionsPanel({ open, onClose, onNavigate, currentQuery, curr
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [editingNote, setEditingNote] = useState<string | null>(null)
   const [noteValue, setNoteValue] = useState('')
+  const [addingTagId, setAddingTagId] = useState<string | null>(null)
+  const [tagInput, setTagInput] = useState('')
   const [filter, setFilter] = useState('')
 
   const reload = useCallback(() => setItems(getCollections()), [])
@@ -46,6 +48,20 @@ export function CollectionsPanel({ open, onClose, onNavigate, currentQuery, curr
   const handleSaveNote = (id: string) => {
     updateAnswer(id, { note: noteValue })
     setEditingNote(null)
+    reload()
+  }
+
+  const handleAddTag = (id: string, currentTags: string[]) => {
+    const tag = tagInput.trim().toLowerCase()
+    if (!tag || currentTags.includes(tag)) { setAddingTagId(null); setTagInput(''); return }
+    updateAnswer(id, { tags: [...currentTags, tag] })
+    setTagInput('')
+    setAddingTagId(null)
+    reload()
+  }
+
+  const handleRemoveTag = (id: string, tag: string, currentTags: string[]) => {
+    updateAnswer(id, { tags: currentTags.filter(t => t !== tag) })
     reload()
   }
 
@@ -129,6 +145,9 @@ export function CollectionsPanel({ open, onClose, onNavigate, currentQuery, curr
                     {item.tags.map(t => (
                       <span key={t} className="text-[10px] text-violet-400/70 border border-violet-500/20 bg-violet-500/5 rounded-full px-2 py-px">{t}</span>
                     ))}
+                    {item.tags.length === 0 && expandedId !== item.id && (
+                      <span className="text-[10px] text-gray-700">no tags</span>
+                    )}
                   </div>
                 </div>
                 <span className="text-[10px] text-gray-700 shrink-0 mt-0.5">{expandedId === item.id ? '▲' : '▼'}</span>
@@ -139,6 +158,29 @@ export function CollectionsPanel({ open, onClose, onNavigate, currentQuery, curr
                 <div className="border-t border-border px-4 py-3 space-y-3">
                   {/* Full answer */}
                   <p className="text-xs text-gray-400 leading-relaxed whitespace-pre-wrap">{item.answer}</p>
+
+                  {/* Tags */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {item.tags.map(t => (
+                      <span key={t} className="inline-flex items-center gap-1 text-[10px] text-violet-400/80 border border-violet-500/25 bg-violet-500/8 rounded-full px-2 py-0.5">
+                        {t}
+                        <button onClick={() => handleRemoveTag(item.id, t, item.tags)} className="text-violet-600 hover:text-red-400 transition-colors leading-none">×</button>
+                      </span>
+                    ))}
+                    {addingTagId === item.id ? (
+                      <input
+                        autoFocus
+                        value={tagInput}
+                        onChange={e => setTagInput(e.target.value)}
+                        onKeyDown={e => { if (e.key === 'Enter') handleAddTag(item.id, item.tags); if (e.key === 'Escape') { setAddingTagId(null); setTagInput('') } }}
+                        onBlur={() => { handleAddTag(item.id, item.tags) }}
+                        placeholder="tag name…"
+                        className="text-[10px] bg-card border border-violet-500/30 rounded-full px-2 py-0.5 outline-none text-violet-400 w-24 placeholder-gray-700"
+                      />
+                    ) : (
+                      <button onClick={() => { setAddingTagId(item.id); setTagInput('') }} className="text-[10px] text-gray-700 hover:text-violet-400 transition-colors">+ tag</button>
+                    )}
+                  </div>
 
                   {/* Note */}
                   {editingNote === item.id ? (

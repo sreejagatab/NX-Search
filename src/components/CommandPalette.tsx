@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { SearchMode, SortField, FocusMode } from '../types'
+import type { SearchMode, SortField, FocusMode, SearchDepth } from '../types'
 import { getRecent } from '../lib/recentSearches'
 
 export interface PaletteAction {
@@ -17,11 +17,17 @@ interface Props {
   onClose: () => void
   mode: SearchMode
   focusMode?: FocusMode
+  depth?: SearchDepth
   onSetMode: (m: SearchMode) => void
   onSetSort: (s: SortField) => void
   onSetFocusMode?: (f: FocusMode) => void
+  onSetDepth?: (d: SearchDepth) => void
   onToggleAiMode?: () => void
   onToggleCollections?: () => void
+  onOpenAnalytics?: () => void
+  onOpenUrlSummary?: () => void
+  onOpenDeepResearch?: () => void
+  onOpenCompare?: () => void
   onExport?: () => void
   onToggleTheme?: () => void
   onNavigate?: (q: string) => void
@@ -38,7 +44,7 @@ function fuzzyMatch(text: string, query: string): boolean {
   return qi === q.length
 }
 
-export function CommandPalette({ open, onClose, mode, focusMode, onSetMode, onSetSort, onSetFocusMode, onToggleAiMode, onToggleCollections, onExport, onToggleTheme, onNavigate }: Props) {
+export function CommandPalette({ open, onClose, mode, focusMode, depth, onSetMode, onSetSort, onSetFocusMode, onSetDepth, onToggleAiMode, onToggleCollections, onOpenAnalytics, onOpenUrlSummary, onOpenDeepResearch, onOpenCompare, onExport, onToggleTheme, onNavigate }: Props) {
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -58,7 +64,16 @@ export function CommandPalette({ open, onClose, mode, focusMode, onSetMode, onSe
       { id: 'focus-web', label: 'Focus: Web — web results, concise answers', group: 'Focus Mode', icon: '◎', onSelect: () => { onSetFocusMode('web'); onClose() } },
       { id: 'focus-quick', label: 'Focus: Quick — fastest, no AI', group: 'Focus Mode', icon: '◎', onSelect: () => { onSetFocusMode('quick'); onClose() } },
     ] : []),
+    ...(onSetDepth ? [
+      { id: 'depth-quick', label: 'Search depth: Quick — pattern, no AI', group: 'Depth', icon: '⚡', onSelect: () => { onSetDepth('quick'); onClose() } },
+      { id: 'depth-standard', label: 'Search depth: Standard — semantic + AI', group: 'Depth', icon: '◎', onSelect: () => { onSetDepth('standard'); onClose() } },
+      { id: 'depth-deep', label: 'Search depth: Deep — hybrid, more results', group: 'Depth', icon: '🔭', onSelect: () => { onSetDepth('deep'); onClose() } },
+    ] : []),
     ...(onToggleAiMode ? [{ id: 'ai-mode', label: 'Toggle AI Mode (Alt+A)', group: 'Actions', icon: '✦', onSelect: () => { onToggleAiMode(); onClose() } }] : []),
+    ...(onOpenAnalytics ? [{ id: 'analytics', label: 'Open search analytics', group: 'Actions', icon: '📊', onSelect: () => { onOpenAnalytics(); onClose() } }] : []),
+    ...(onOpenUrlSummary ? [{ id: 'url-summary', label: 'Summarize a URL', group: 'Actions', icon: '🔗', onSelect: () => { onOpenUrlSummary(); onClose() } }] : []),
+    ...(onOpenDeepResearch ? [{ id: 'deep-research', label: 'Deep Research — multi-query synthesis', group: 'Actions', icon: '🔬', shortcut: 'Alt+R', onSelect: () => { onOpenDeepResearch(); onClose() } }] : []),
+    ...(onOpenCompare ? [{ id: 'compare', label: 'Compare Answers — two styles side by side', group: 'Actions', icon: '⚖', shortcut: 'Alt+V', onSelect: () => { onOpenCompare(); onClose() } }] : []),
     ...(onToggleCollections ? [{ id: 'collections', label: 'Open saved answers (Alt+C)', group: 'Actions', icon: '🗂', onSelect: () => { onToggleCollections(); onClose() } }] : []),
     ...(onExport ? [{ id: 'export', label: 'Export results as JSON', group: 'Actions', icon: '⬇', onSelect: () => { onExport(); onClose() } }] : []),
     ...(onToggleTheme ? [{ id: 'theme', label: 'Toggle theme', group: 'Actions', icon: '◑', onSelect: () => { onToggleTheme(); onClose() } }] : []),
@@ -161,6 +176,12 @@ export function CommandPalette({ open, onClose, mode, focusMode, onSetMode, onSe
                     )}
                     {action.id.startsWith('focus-') && focusMode && action.id === `focus-${focusMode}` && (
                       <span className="text-[10px] text-amber-400 border border-amber-400/30 px-1.5 py-0.5 rounded">active</span>
+                    )}
+                    {action.id.startsWith('depth-') && depth && action.id === `depth-${depth}` && (
+                      <span className="text-[10px] text-amber-400 border border-amber-400/30 px-1.5 py-0.5 rounded">active</span>
+                    )}
+                    {action.shortcut && (
+                      <kbd className="text-[10px] text-gray-600 border border-border rounded px-1.5 py-0.5">{action.shortcut}</kbd>
                     )}
                   </li>
                 )

@@ -22,7 +22,7 @@ export function SearchBar({ query, mode, domains = [], focusMode = 'research', o
   const [localQuery, setLocalQuery] = useState(query)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(-1)
-  const { suggestions, clear, prefetchSuggestion, cancelPrefetch } = useSuggest(localQuery)
+  const { suggestions, trending, clear, prefetchSuggestion, cancelPrefetch } = useSuggest(localQuery)
 
   useEffect(() => { setLocalQuery(query) }, [query])
   useEffect(() => { setSelectedIndex(-1) }, [suggestions])
@@ -42,7 +42,9 @@ export function SearchBar({ query, mode, domains = [], focusMode = 'research', o
     return () => document.removeEventListener('keydown', handler)
   }, [])
 
+  const [inputFocused, setInputFocused] = useState(false)
   const visibleSuggestions = suggestions.slice(0, 8)
+  const showTrending = inputFocused && !localQuery.trim() && suggestions.length === 0
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'ArrowDown') {
@@ -118,8 +120,8 @@ export function SearchBar({ query, mode, domains = [], focusMode = 'research', o
           value={localQuery}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
-          onFocus={() => visibleSuggestions.length > 0 && setShowSuggestions(true)}
-          onBlur={() => setTimeout(() => { setShowSuggestions(false); setSelectedIndex(-1) }, 150)}
+          onFocus={() => { setInputFocused(true); if (visibleSuggestions.length > 0) setShowSuggestions(true) }}
+          onBlur={() => setTimeout(() => { setShowSuggestions(false); setSelectedIndex(-1); setInputFocused(false) }, 150)}
           placeholder="Search patterns, code, concepts…"
           className={`flex-1 bg-transparent text-gray-100 placeholder-gray-600 outline-none ${isLg ? 'px-4 py-4 text-lg' : 'px-3 py-2.5 text-sm'}`}
           data-testid="search-input"
@@ -173,6 +175,28 @@ export function SearchBar({ query, mode, domains = [], focusMode = 'research', o
             </div>
           ))}
         </div>
+      )}
+
+      {voice.error && (
+        <p className="absolute top-full left-0 mt-1 text-xs text-red-400 px-1">{voice.error}</p>
+      )}
+
+      {showTrending && trending.length > 0 && (
+        <ul className="absolute top-full left-0 right-0 mt-1 bg-card border border-border rounded-xl overflow-hidden shadow-xl z-40" role="listbox" aria-label="Trending searches">
+          <li className="px-4 pt-2.5 pb-1">
+            <span className="text-[10px] text-gray-600 uppercase tracking-wider">Trending</span>
+          </li>
+          {trending.map((s, i) => (
+            <li key={i} role="option" aria-selected={false}>
+              <button
+                onMouseDown={() => selectSuggestion(s)}
+                className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-subtle transition-colors"
+              >
+                <span className="text-amber-400/50 mr-2" aria-hidden="true">↗</span>{s}
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
 
       {showSuggestions && visibleSuggestions.length > 0 && (
