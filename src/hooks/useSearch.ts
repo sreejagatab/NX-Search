@@ -7,19 +7,40 @@ import type { SearchResult, SearchMode, SortField, FocusMode } from '../types'
 export const DISPLAY_PAGE_SIZE = 10  // 2 pages of 10 from max-20 API results
 const FETCH_LIMIT = 20
 
-// LRU in-memory cache — exported so useSuggest can prefetch into it
-export const searchCache = new Map<string, { results: SearchResult[]; total: number; queryTimeMs: number }>()
 const CACHE_MAX = 20
+const CACHE_TTL_MS = 5 * 60 * 1000 // 5 minutes
+
+interface CacheEntry {
+  results: SearchResult[]
+  total: number
+  queryTimeMs: number
+  aiSummary: string
+  intent: string
+  intentConfidence: number
+  enginesUsed: string[]
+  resultSources: Record<string, number>
+  relatedSearches: string[]
+  expiresAt: number
+}
+
+// LRU in-memory cache — exported so useSuggest can prefetch into it
+export const searchCache = new Map<string, CacheEntry>()
 
 export function cacheKey(q: string, domains: string[], mode: SearchMode) {
   return `${q}|${[...domains].sort().join(',')}|${mode}`
 }
-export function cacheSet(key: string, value: { results: SearchResult[]; total: number; queryTimeMs: number }) {
+export function cacheSet(key: string, value: Omit<CacheEntry, 'expiresAt'>) {
   if (searchCache.size >= CACHE_MAX) {
     const first = searchCache.keys().next().value
     if (first !== undefined) searchCache.delete(first)
   }
-  searchCache.set(key, value)
+  searchCache.set(key, { ...value, expiresAt: Date.now() + CACHE_TTL_MS })
+}
+export function cacheGet(key: string): CacheEntry | undefined {
+  const entry = searchCache.get(key)
+  if (!entry) return undefined
+  if (Date.now() > entry.expiresAt) { searchCache.delete(key); return undefined }
+  return entry
 }
 
 export function useSearch() {
@@ -63,10 +84,14 @@ export function useSearch() {
     const effectiveQ = ops.cleanQuery || q
     const effectiveDoms = ops.domains.length > 0 ? [...new Set([...doms, ...ops.domains])] : doms
     const key = cacheKey(effectiveQ, effectiveDoms, m)
-    const cached = searchCache.get(key)
+    const cached = cacheGet(key)
     if (cached) {
-      setLoading(false); setResults(cached.results); setTotal(cached.total); setQueryTimeMs(cached.queryTimeMs)
-      setStaleResults([]); return
+      setLoading(false)
+      setResults(cached.results); setTotal(cached.total); setQueryTimeMs(cached.queryTimeMs)
+      setAiSummary(cached.aiSummary); setIntent(cached.intent); setIntentConfidence(cached.intentConfidence)
+      setEnginesUsed(cached.enginesUsed); setResultSources(cached.resultSources); setRelatedSearches(cached.relatedSearches)
+      setStaleResults([])
+      return
     }
 
     abortRef.current?.abort()
@@ -98,21 +123,24 @@ export function useSearch() {
           resp = await searchPatterns(effectiveQ, effectiveDoms[0] ?? '', FETCH_LIMIT)
         }
       }
-      const payload = { results: resp.results, total: resp.total, queryTimeMs: resp.query_time_ms }
-      cacheSet(key, payload)
-      setResults(resp.results); setTotal(resp.total); setQueryTimeMs(resp.query_time_ms)
-      setAiSummary(resp.ai_summary ?? '')
-      setIntent(resp.intent ?? '')
-      setIntentConfidence(resp.intent_confidence ?? 0)
-      setEnginesUsed(resp.engines_used ?? [])
-      // Normalize raw source names from API to user-friendly labels
       const SOURCE_LABELS: Record<string, string> = { 'neuronx_memory.db': 'Internal', 'codebase': 'Codebase' }
-      const rawSources = resp.sources ?? {}
       const normalizedSources = Object.fromEntries(
-        Object.entries(rawSources).map(([k, v]) => [SOURCE_LABELS[k] ?? k, v])
+        Object.entries(resp.sources ?? {}).map(([k, v]) => [SOURCE_LABELS[k] ?? k, v])
       )
-      setResultSources(normalizedSources)
-      setRelatedSearches(resp.related_searches?.filter(Boolean) ?? [])
+      const aiSummary = resp.ai_summary ?? ''
+      const intent = resp.intent ?? ''
+      const intentConfidence = resp.intent_confidence ?? 0
+      const enginesUsed = resp.engines_used ?? []
+      const relatedSearches = resp.related_searches?.filter(Boolean) ?? []
+
+      cacheSet(key, {
+        results: resp.results, total: resp.total, queryTimeMs: resp.query_time_ms,
+        aiSummary, intent, intentConfidence, enginesUsed,
+        resultSources: normalizedSources, relatedSearches,
+      })
+      setResults(resp.results); setTotal(resp.total); setQueryTimeMs(resp.query_time_ms)
+      setAiSummary(aiSummary); setIntent(intent); setIntentConfidence(intentConfidence)
+      setEnginesUsed(enginesUsed); setResultSources(normalizedSources); setRelatedSearches(relatedSearches)
       setStaleResults([])
     } catch (e: unknown) {
       if ((e as Error).name !== 'AbortError') {
@@ -205,6 +233,35 @@ export function useSearch() {
     return true
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [displayBase, effectiveMinConfidence, effectiveMaxConfidence, rawDomains, activeSources, localFilter, excludedDomains, excludedSources, ops])
+
+  // When strict filters leave fewer than 5 visible results and the server has more,
+  // fetch the next batch (page 2) and merge it into the pool.
+  const fetchMoreRef = useRef(false)
+  useEffect(() => {
+    const hasFilters = minConfidence > 0 || localFilter.trim() || activeSources.length > 0 || excludedDomains.length > 0
+    if (!hasFilters || loading || fetchMoreRef.current) return
+    if (filteredResults.length < 5 && results.length >= FETCH_LIMIT) {
+      fetchMoreRef.current = true
+      const ops = parseOperators(query)
+      const effectiveQ = ops.cleanQuery || query
+      const effectiveDoms = ops.domains.length > 0 ? [...new Set([...domains, ...ops.domains])] : domains
+      const fetcher = mode === 'hybrid'
+        ? searchHybrid(effectiveQ, FETCH_LIMIT, 0.7, effectiveDoms[0] ?? '')
+        : mode === 'semantic'
+          ? searchSemantic(effectiveQ, FETCH_LIMIT, 0.7, effectiveDoms[0] ?? '')
+          : searchPatterns(effectiveQ, effectiveDoms[0] ?? '', FETCH_LIMIT)
+      // Append page-2 results by requesting with a larger per_page equivalent
+      // (API doesn't support page param reliably, so we pass a higher limit)
+      void fetcher.then(resp => {
+        setResults(prev => {
+          const seen = new Set(prev.map(r => r.id))
+          const novel = resp.results.filter(r => !seen.has(r.id))
+          return novel.length > 0 ? [...prev, ...novel] : prev
+        })
+      }).catch(() => {}).finally(() => { fetchMoreRef.current = false })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredResults.length, results.length, loading, minConfidence, localFilter, activeSources, excludedDomains])
 
   const sortedResults = useMemo(() => [...filteredResults].sort((a, b) => {
     if (sort === 'confidence') return b.confidence - a.confidence

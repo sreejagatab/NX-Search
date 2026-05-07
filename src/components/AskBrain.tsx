@@ -18,6 +18,7 @@ interface Props {
   onExplainDone?: () => void
   thread?: ThreadMessage[]
   onClearThread?: () => void
+  onExchange?: (q: string, a: string) => void
 }
 
 // Minimal safe markdown render
@@ -47,7 +48,7 @@ function parseCitations(answer: string): Set<number> {
   return found
 }
 
-export function AskBrain({ query, results, visible, onClose, onFollowUp, explainResult, onExplainDone, thread = [], onClearThread }: Props) {
+export function AskBrain({ query, results, visible, onClose, onFollowUp, explainResult, onExplainDone, thread = [], onClearThread, onExchange }: Props) {
   const { answer, loading, error, ask, abort, reset } = useAskBrain()
   const [lastQuery, setLastQuery] = useState('')
   const [copied, setCopied] = useState(false)
@@ -55,14 +56,14 @@ export function AskBrain({ query, results, visible, onClose, onFollowUp, explain
   const answerRef = useRef<HTMLDivElement>(null)
 
   const triggerAsk = useCallback(() => {
-    if (query && results.length > 0) { ask(query, results, answerStyle); setLastQuery(query) }
-  }, [query, results, ask, answerStyle])
+    if (query && results.length > 0) { ask(query, results, answerStyle, onExchange); setLastQuery(query) }
+  }, [query, results, ask, answerStyle, onExchange])
 
   // Handle per-result explain mode
   useEffect(() => {
     if (visible && explainResult) {
       const explainQuery = `Explain this in detail: ${explainResult.title ?? explainResult.domain}`
-      ask(explainQuery, [explainResult], 'detailed')
+      ask(explainQuery, [explainResult], 'detailed', onExchange)
       setLastQuery(explainQuery)
       onExplainDone?.()
     }

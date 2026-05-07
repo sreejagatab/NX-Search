@@ -52,10 +52,18 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
 // Streaming for the NeuronX vLLM endpoint (/v1/chat/completions — OpenAI SSE format)
 const STREAM_IDLE_TIMEOUT_MS = 60_000 // abort if no data received for 60s
 
+// Track active LLM streams by path so concurrent calls to the same endpoint can be detected.
+// Each hook manages its own AbortController — this map is for observability / future dedup.
+const activeStreams = new Map<string, AbortController>()
+
 export function llmStream(path: string, body: unknown, onToken: (token: string) => void, signal?: AbortSignal): Promise<void> {
+  // Abort any existing stream on the same path before starting a new one
+  const existing = activeStreams.get(path)
+  if (existing) existing.abort('superseded')
   // Internal controller so we can abort on idle timeout without disturbing caller's signal
   const ctrl = new AbortController()
   if (signal) signal.addEventListener('abort', () => ctrl.abort(signal.reason), { once: true })
+  activeStreams.set(path, ctrl)
 
   let idleTimer: ReturnType<typeof setTimeout> | null = null
   const resetIdle = () => {
@@ -105,46 +113,14 @@ export function llmStream(path: string, body: unknown, onToken: (token: string) 
       }
     } finally {
       if (idleTimer) clearTimeout(idleTimer)
+      activeStreams.delete(path)
     }
   }).catch(err => {
     if (idleTimer) clearTimeout(idleTimer)
+    activeStreams.delete(path)
     // Re-map idle timeout to a user-friendly ApiError
     const msg = (err as Error).message ?? String(err)
     if (msg === 'Stream idle timeout') throw new ApiError(504, 'AI answer timed out — the model stopped responding. Try again.')
     throw err
-  })
-}
-
-export function apiStream(path: string, body: unknown, onToken: (token: string) => void, signal?: AbortSignal): Promise<void> {
-  return fetch(`${BASE_URL}${path}`, {
-    method: 'POST',
-    headers: { 'X-API-Key': API_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal,
-  }).then(async (res) => {
-    if (!res.ok) throw new ApiError(res.status, friendlyError(res.status, res.statusText))
-    if (!res.body) return
-    const reader = res.body.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      buffer += decoder.decode(value, { stream: true })
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6).trim()
-          if (data && data !== '[DONE]') {
-            try {
-              const parsed = JSON.parse(data)
-              const token = parsed.token ?? parsed.text ?? parsed.content ?? data
-              onToken(token)
-            } catch { onToken(data) }
-          }
-        }
-      }
-    }
   })
 }

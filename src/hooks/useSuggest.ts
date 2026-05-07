@@ -33,7 +33,12 @@ export function useSuggest(query: string) {
         if (mode === 'hybrid') resp = await searchHybrid(suggestion, 20, 0.7, domains[0] ?? '')
         else if (mode === 'semantic') resp = await searchSemantic(suggestion, 20, 0.7, domains[0] ?? '')
         else resp = await searchPatterns(suggestion, domains[0] ?? '', 20)
-        cacheSet(key, { results: resp.results, total: resp.total, queryTimeMs: resp.query_time_ms })
+        cacheSet(key, {
+          results: resp.results, total: resp.total, queryTimeMs: resp.query_time_ms,
+          aiSummary: resp.ai_summary ?? '', intent: resp.intent ?? '',
+          intentConfidence: resp.intent_confidence ?? 0, enginesUsed: resp.engines_used ?? [],
+          resultSources: resp.sources ?? {}, relatedSearches: resp.related_searches?.filter(Boolean) ?? [],
+        })
       } catch { /* ignore prefetch failures */ }
       prefetchTimers.current.delete(suggestion)
     }, 200)

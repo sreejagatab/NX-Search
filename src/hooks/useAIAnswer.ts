@@ -6,6 +6,7 @@ import type { SearchResult, FocusMode } from '../types'
 export type { ThreadMessage }
 
 const THREAD_KEY = 'nx-thread'
+const MAX_THREAD_PAIRS = 6 // keep last 6 user+assistant exchanges (~12 messages + system)
 
 function loadThread(): ThreadMessage[] {
   try {
@@ -55,12 +56,16 @@ export function useAIAnswer() {
         setAnswer(prev => prev + token)
       }, abortRef.current.signal, currentThread, answerStyle, focusMode)
 
-      // Append this exchange to the thread
-      const newThread: ThreadMessage[] = [
+      // Append this exchange to the thread, trimming oldest pairs beyond cap
+      const appended: ThreadMessage[] = [
         ...currentThread,
         { role: 'user', content: query },
         { role: 'assistant', content: fullAnswer },
       ]
+      const maxMessages = MAX_THREAD_PAIRS * 2
+      const newThread = appended.length > maxMessages
+        ? appended.slice(appended.length - maxMessages)
+        : appended
       setThread(newThread)
       saveThread(newThread)
     } catch (e: unknown) {
@@ -100,5 +105,22 @@ export function useAIAnswer() {
     sessionStorage.removeItem(THREAD_KEY)
   }, [])
 
-  return { answer, loading, error, thread, generate, abort, reset, clearThread }
+  // Allow external callers (e.g. AskBrain) to append their exchanges into the shared thread
+  const appendExchange = useCallback((userMessage: string, assistantMessage: string) => {
+    setThread(prev => {
+      const appended: ThreadMessage[] = [
+        ...prev,
+        { role: 'user', content: userMessage },
+        { role: 'assistant', content: assistantMessage },
+      ]
+      const maxMessages = MAX_THREAD_PAIRS * 2
+      const trimmed = appended.length > maxMessages
+        ? appended.slice(appended.length - maxMessages)
+        : appended
+      saveThread(trimmed)
+      return trimmed
+    })
+  }, [])
+
+  return { answer, loading, error, thread, generate, abort, reset, clearThread, appendExchange }
 }

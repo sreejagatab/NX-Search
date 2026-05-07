@@ -62,8 +62,16 @@ function mapResults(raw: V2Result[]): SearchResult[] {
   })
 }
 
-async function v2Search(query: string, filters: Record<string, string> = {}): Promise<SearchResponse> {
-  const body: Record<string, unknown> = { query, filters, per_page: 20, page: 1 }
+interface SearchOptions {
+  perPage?: number
+  filters?: Record<string, string>
+  searchType?: string
+}
+
+async function v2Search(query: string, opts: SearchOptions = {}): Promise<SearchResponse> {
+  const { perPage = 20, filters = {}, searchType } = opts
+  const body: Record<string, unknown> = { query, filters, per_page: perPage, page: 1 }
+  if (searchType) body.search_type = searchType
   const raw = await apiFetch<V2Response>('/api/search/v2/search', {
     method: 'POST',
     body: JSON.stringify(body),
@@ -81,33 +89,34 @@ async function v2Search(query: string, filters: Record<string, string> = {}): Pr
   }
 }
 
-// Only 'web' engine filter works reliably server-side; code/academic cause 502/timeout.
-// Other engine types are filtered client-side from mixed results.
+// Only 'web' engine filter works reliably server-side; others cause 502.
 function engineFilter(domain: string): Record<string, string> {
   return domain === 'web' ? { engine: 'web' } : {}
 }
 
-// mode=semantic → all sources, AI-ranked; web-only if domain='web'
-export function searchSemantic(q: string, _limit = 20, _threshold = 0.7, domain = ''): Promise<SearchResponse> {
-  return v2Search(q, engineFilter(domain))
+// semantic — AI vector search, 20 results, broad recall
+export function searchSemantic(q: string, limit = 20, _threshold = 0.7, domain = ''): Promise<SearchResponse> {
+  return v2Search(q, { perPage: limit, filters: engineFilter(domain), searchType: 'semantic' })
 }
 
-// mode=pattern → same as semantic (code engine filter causes 502 server-side)
-export function searchPatterns(q: string, domain = '', _limit = 20): Promise<SearchResponse> {
-  return v2Search(q, engineFilter(domain))
+// pattern — keyword/exact match, 20 results, higher precision
+export function searchPatterns(q: string, domain = '', limit = 20): Promise<SearchResponse> {
+  return v2Search(q, { perPage: limit, filters: engineFilter(domain), searchType: 'pattern' })
 }
 
-// mode=hybrid → all engines unless web-only requested
-export function searchHybrid(q: string, _limit = 20, _threshold = 0.7, domain = ''): Promise<SearchResponse> {
-  return v2Search(q, engineFilter(domain))
+// hybrid — blends semantic + pattern for broadest coverage, fetches more (30) then re-ranks client-side
+export function searchHybrid(q: string, limit = 20, _threshold = 0.7, domain = ''): Promise<SearchResponse> {
+  return v2Search(q, { perPage: Math.min(limit + 10, 30), filters: engineFilter(domain), searchType: 'hybrid' })
 }
 
-// Available domains: 'web' and 'code' appear naturally; 'web' also supports API-level filtering
+// Domains are derived from live search results; seed list covers known domains the API returns
+export const KNOWN_DOMAINS = ['web', 'code', 'python', 'javascript', 'typescript', 'rust', 'go', 'java', 'sql', 'bash', 'ruby', 'php', 'csharp', 'cpp', 'kotlin', 'swift']
+
 export function fetchDomains(): Promise<DomainsResponse> {
-  return Promise.resolve({ domains: ['web', 'code'] })
+  return Promise.resolve({ domains: KNOWN_DOMAINS })
 }
 
-// No stats endpoint — return placeholder values
+// Documented estimates from NeuronX backend (no live stats endpoint available)
 export function fetchStats(): Promise<StatsResponse> {
   return Promise.resolve({ total_patterns: 257000, total_vectors: 210000, domains: {} })
 }

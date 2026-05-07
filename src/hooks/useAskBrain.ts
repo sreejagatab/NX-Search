@@ -9,7 +9,12 @@ export function useAskBrain() {
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  const ask = useCallback(async (query: string, results: SearchResult[], answerStyle: AnswerStyle = 'detailed') => {
+  const ask = useCallback(async (
+    query: string,
+    results: SearchResult[],
+    answerStyle: AnswerStyle = 'detailed',
+    onExchange?: (q: string, a: string) => void,
+  ) => {
     abortRef.current?.abort()
     abortRef.current = new AbortController()
     setAnswer('')
@@ -17,10 +22,13 @@ export function useAskBrain() {
     setLoading(true)
 
     const context = results.slice(0, 5).map(r => ({ content: r.content }))
+    let fullAnswer = ''
     try {
-      await askBrain(query, context, (token) => {
+      await askBrain(query, context, token => {
+        fullAnswer += token
         setAnswer(prev => prev + token)
       }, abortRef.current.signal, answerStyle)
+      if (fullAnswer) onExchange?.(query, fullAnswer)
     } catch (e: unknown) {
       if ((e as Error).name !== 'AbortError') {
         setError((e as Error).message ?? 'Ask Brain failed')
