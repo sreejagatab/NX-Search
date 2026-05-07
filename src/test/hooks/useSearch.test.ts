@@ -38,7 +38,7 @@ describe('useSearch', () => {
     act(() => { result.current.setQuery('python') })
     expect(searchApi.searchSemantic).not.toHaveBeenCalled()
     await act(async () => { await vi.runAllTimersAsync() })
-    expect(searchApi.searchSemantic).toHaveBeenCalledWith('python', 50, 0.7)
+    expect(searchApi.searchSemantic).toHaveBeenCalledWith('python', 20, 0.7, '')
   })
 
   it('does not search for empty query', async () => {

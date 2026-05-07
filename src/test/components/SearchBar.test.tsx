@@ -46,17 +46,24 @@ describe('SearchBar', () => {
     expect(onSubmit).toHaveBeenCalled()
   })
 
-  it('toggles mode to pattern', () => {
-    const onMode = vi.fn()
-    render(<SearchBar query="" mode="semantic" onQueryChange={vi.fn()} onModeChange={onMode} />)
-    fireEvent.click(screen.getByText('Pattern'))
-    expect(onMode).toHaveBeenCalledWith('pattern')
+  it('focus pills: clicking Web calls onFocusModeChange with web', () => {
+    const onFocus = vi.fn()
+    render(<SearchBar query="" mode="semantic" focusMode="research" onQueryChange={vi.fn()} onFocusModeChange={onFocus} />)
+    fireEvent.click(screen.getByTitle('Web results only — concise answers'))
+    expect(onFocus).toHaveBeenCalledWith('web')
   })
 
-  it('toggles mode to semantic', () => {
-    const onMode = vi.fn()
-    render(<SearchBar query="" mode="pattern" onQueryChange={vi.fn()} onModeChange={onMode} />)
-    fireEvent.click(screen.getByText('Semantic'))
-    expect(onMode).toHaveBeenCalledWith('semantic')
+  it('focus pills: clicking Research calls onFocusModeChange with research', () => {
+    const onFocus = vi.fn()
+    render(<SearchBar query="" mode="semantic" focusMode="web" onQueryChange={vi.fn()} onFocusModeChange={onFocus} />)
+    fireEvent.click(screen.getByTitle('All sources — comprehensive AI answers'))
+    expect(onFocus).toHaveBeenCalledWith('research')
+  })
+
+  it('focus pills: clicking Quick calls onFocusModeChange with quick', () => {
+    const onFocus = vi.fn()
+    render(<SearchBar query="" mode="semantic" focusMode="research" onQueryChange={vi.fn()} onFocusModeChange={onFocus} />)
+    fireEvent.click(screen.getByTitle('Fast results — no AI generation'))
+    expect(onFocus).toHaveBeenCalledWith('quick')
   })
 })
