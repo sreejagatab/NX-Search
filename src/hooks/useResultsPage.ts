@@ -7,6 +7,7 @@ import { getTheme, applyTheme, type Theme } from '../lib/theme'
 import { useSearch } from './useSearch'
 import { useAIAnswer } from './useAIAnswer'
 import type { SearchResult } from '../types'
+import type { Lens } from '../lib/lenses'
 
 export function useResultsPage() {
   const search = useSearch()
@@ -163,6 +164,13 @@ export function useResultsPage() {
     search.setActiveSources([])
   }, [search])
 
+  const applyLens = useCallback((lens: Pick<Lens, 'domains' | 'mode' | 'sort' | 'minConfidence'>) => {
+    search.setDomains(lens.domains)
+    search.setMode(lens.mode)
+    search.setSort(lens.sort)
+    search.setMinConfidence(lens.minConfidence)
+  }, [search])
+
   const highlightId = searchParams.get('result') ?? undefined
   const themeIcon = theme === 'dark' ? '🌙' : theme === 'light' ? '☀️' : '⚙'
 
@@ -180,6 +188,6 @@ export function useResultsPage() {
     // handlers
     toggleAiMode, handleAnswerStyleChange, cycleTheme,
     openAnalytics, openCollections,
-    exportJson, handleMoreLike, handleExplain, handleFollowUp, clearAllFilters,
+    exportJson, handleMoreLike, handleExplain, handleFollowUp, clearAllFilters, applyLens,
   }
 }

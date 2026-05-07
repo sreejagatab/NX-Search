@@ -5,6 +5,7 @@ import { AskBrain } from '../components/AskBrain'
 import { StatsChip } from '../components/StatsChip'
 import { SidebarFilters } from '../components/SidebarFilters'
 import { FilterChips } from '../components/FilterChips'
+import { LensesBar } from '../components/LensesBar'
 import { ProgressBar } from '../components/ProgressBar'
 import { OfflineBanner } from '../components/OfflineBanner'
 import { ErrorBoundary } from '../components/ErrorBoundary'
@@ -134,6 +135,13 @@ export function Results() {
           onResetConfidence={() => search.setMinConfidence(0)}
           onRemoveSource={s => search.setActiveSources(search.activeSources.filter(x => x !== s))}
           onClearAll={p.clearAllFilters}
+        />
+        <LensesBar
+          domains={search.domains}
+          mode={search.mode}
+          sort={search.sort}
+          minConfidence={search.minConfidence}
+          onApply={p.applyLens}
         />
       </header>
 
