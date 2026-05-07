@@ -32,15 +32,22 @@ A production-grade semantic search front-end over the [NeuronX](https://neuronx.
 
 | Category | Features |
 |---|---|
-| **Search** | Semantic (FAISS vector), Pattern (keyword), Hybrid mode |
-| **AI** | Streaming AI answer (Brain 72B), concise / detailed / bullets styles, thread memory |
+| **Search** | Semantic (FAISS vector), Pattern (keyword), Hybrid mode; Quick / Standard / Deep depth dial |
+| **AI** | Streaming AI answer (Brain 72B), concise / detailed / ELI5 / bullets styles, thread memory |
 | **PAA** | People Also Ask — auto-generated follow-up questions with mini-answers + full-search link |
-| **Filters** | Domain pills, source chips, sort (similarity / confidence / domain), "Clear all" |
+| **Deep Research** | Multi-query synthesis: AI plans sub-queries → parallel fetch → streaming report |
+| **Compare** | Side-by-side Concise vs Detailed answer comparison with parallel streams |
+| **URL Summarizer** | Paste any URL → fetches content → streams structured AI summary + key points |
+| **Filters** | Domain pills, source chips, confidence slider, sort, exclude controls, "Clear all" |
+| **Lenses** | Preset + custom saved filter combinations (domain + mode + sort + confidence) |
 | **Navigation** | URL-synced state, shareable links, browser back/forward, deep-link to result |
-| **UX** | Command palette (`⌘K`), keyboard nav, hover preview popover, focus modes (All / Web / Quick) |
-| **Collections** | Save AI answers, browse & re-open saved sessions |
-| **Analytics** | Per-domain hit distribution chart, query-time badge |
-| **PWA** | Service worker, offline banner, installable |
+| **UX** | Command palette (`⌘K`), keyboard nav, hover preview, focus modes (All / Web / Quick) |
+| **Voice** | Voice search via Web Speech API; Audio overview via Speech Synthesis (TTS) |
+| **Collections** | Save AI answers with tags + notes; filter, re-search, copy |
+| **Citations** | Inline `[N]` citation hover previews + citation verification (40% key-term overlap) |
+| **Domain prefs** | Boost domain (float to top) or block domain (hide permanently), persisted |
+| **Analytics** | Per-domain hit bar chart, query-time sparkline, zero-result log with clear |
+| **PWA** | Service worker (GET cache), offline banner, installable manifest |
 | **DX** | 58 unit tests (Vitest + Testing Library), TypeScript strict, Tailwind v3 |
 
 ---
@@ -193,9 +200,12 @@ Every search parameter is reflected in the URL and restored on page load:
 | Param | Example | Description |
 |---|---|---|
 | `q` | `?q=async+python` | Search query |
-| `domain` | `&domain=python` | Active domain filter |
+| `domain` | `&domain=python` | Active domain filter (comma-separated for multi) |
 | `mode` | `&mode=semantic` | `semantic` / `pattern` / `hybrid` |
 | `focus` | `&focus=web` | `research` / `web` / `quick` |
+| `depth` | `&depth=deep` | `quick` (pattern, no AI) / `standard` / `deep` (hybrid + 30 results) |
+| `sort` | `&sort=confidence` | `similarity` / `confidence` / `domain` |
+| `page` | `&page=2` | Current results page (cleared on new query) |
 | `result` | `&result=abc123` | Opens DetailPane for that result ID |
 
 Shareable example:
@@ -210,13 +220,16 @@ https://nx-search.jagatab.uk/results?q=rust+async&domain=rust&mode=semantic
 | Key | Action |
 |---|---|
 | `/` | Focus search bar |
-| `Escape` | Clear query / close modal |
-| `Enter` | Submit search |
-| `↑` / `↓` | Navigate result cards |
+| `Escape` | Clear query / close suggestions / close modal |
+| `Enter` | Submit search / select suggestion |
+| `j` / `k` | Navigate result cards (vim-style) |
 | `o` | Open focused result in DetailPane |
-| `c` | Copy focused result content |
-| `e` | Explain focused result with AI |
+| `e` | Explain focused result with AI (Ask Brain) |
 | `⌘K` / `Ctrl+K` | Open Command Palette |
+| `Alt+A` | Toggle AI Mode |
+| `Alt+C` | Toggle Collections panel |
+| `Alt+R` | Toggle Deep Research panel |
+| `Alt+V` | Toggle Compare Answers panel |
 
 ---
 

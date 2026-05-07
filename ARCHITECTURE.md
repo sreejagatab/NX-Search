@@ -14,43 +14,56 @@ nx-search/
 │   │   ├── client.ts        # apiFetch + llmStream (SSE) primitives
 │   │   └── search.ts        # All API calls + LLM helpers
 │   ├── components/
-│   │   ├── AIModeCard.tsx   # AI answer card (PAA, follow-up, save)
-│   │   ├── AISummary.tsx    # Legacy summary display
-│   │   ├── AskBrain.tsx     # Inline Ask Brain widget
-│   │   ├── AnalyticsPanel.tsx  # Domain hit distribution chart
-│   │   ├── CitationText.tsx    # Bold / code / [N] citation renderer
-│   │   ├── CollectionsPanel.tsx # Saved answers browser
-│   │   ├── CommandPalette.tsx   # ⌘K command palette
-│   │   ├── DetailPane.tsx       # Slide-in result detail panel
-│   │   ├── DomainFilter.tsx     # Domain pills + DomainBadge
-│   │   ├── ErrorBoundary.tsx    # React error boundary
+│   │   ├── AIModeCard.tsx       # AI answer card: streaming, markdown, PAA, follow-up, save
+│   │   ├── AISummary.tsx        # Collapsible plain-text summary (AI Mode off), TTS
+│   │   ├── AnswerCompare.tsx    # Side-by-side Concise vs Detailed parallel stream comparison
+│   │   ├── AskBrain.tsx         # Ask Brain side panel: markdown, citations, thread, TTS
+│   │   ├── AnalyticsPanel.tsx   # Stats tab + Zero Results tab with clear
+│   │   ├── CitationText.tsx     # Inline **bold**/`code`/[N] citation with hover popup
+│   │   ├── CollectionsPanel.tsx # Saved answers: filter, tags, notes, re-search
+│   │   ├── CommandPalette.tsx   # ⌘K: mode/sort/focus/depth/actions/recent fuzzy search
+│   │   ├── DeepResearchPanel.tsx# Multi-query synthesis: plan→search→synthesize→report
+│   │   ├── DetailPane.tsx       # Slide-in result detail: syntax highlight, share, copy
+│   │   ├── DomainFilter.tsx     # Domain checkboxes + pills + DomainBadge
+│   │   ├── ErrorBoundary.tsx    # React error boundary with label + retry
 │   │   ├── FilterChips.tsx      # Active-filter chip strip + Clear all
-│   │   ├── OfflineBanner.tsx    # Service worker offline indicator
-│   │   ├── ProgressBar.tsx      # Animated search progress bar
-│   │   ├── ResultCard.tsx       # Single result card + ExpandedModal
-│   │   ├── ResultList.tsx       # Virtualisable result list
-│   │   ├── SearchBar.tsx        # Query input, suggestions, focus pills
-│   │   ├── SidebarFilters.tsx   # Left sidebar (filters, collections, thread)
+│   │   ├── LensesBar.tsx        # Preset + saved filter lenses (domain/mode/sort/confidence)
+│   │   ├── OfflineBanner.tsx    # Service worker online/offline banner
+│   │   ├── ProgressBar.tsx      # Slow-query progress bar with elapsed timer
+│   │   ├── ResultCard.tsx       # Card + hover popover + ExpandedModal + domain prefs
+│   │   ├── ResultList.tsx       # Paginated list: sort, cluster, density, local filter
+│   │   ├── SearchBar.tsx        # Query input + suggestions + focus pills + voice + trending
+│   │   ├── SidebarFilters.tsx   # Domain/source filters, exclude controls, confidence slider
 │   │   ├── Skeleton.tsx         # Loading skeleton cards
-│   │   ├── StatsChip.tsx        # Stats display chip
-│   │   └── ThreadView.tsx       # Conversation thread viewer
+│   │   ├── StatsChip.tsx        # Patterns · Vectors · Xms display
+│   │   ├── ThreadView.tsx       # Conversation thread display
+│   │   └── UrlSummarizer.tsx    # URL paste → proxy fetch → streaming LLM summary
 │   ├── hooks/
-│   │   ├── useAIAnswer.ts       # Streaming LLM answer + thread
-│   │   ├── useAskBrain.ts       # Single-shot Ask Brain query
-│   │   ├── usePeopleAlsoAsk.ts  # PAA question generation + mini-answers
-│   │   ├── usePrism.ts          # PrismJS lazy-load + highlight
-│   │   ├── useResultKeyboard.ts # ↑↓ / o / c / e keyboard navigation
-│   │   ├── useSearch.ts         # Core search state + URL sync
-│   │   └── useSuggest.ts        # Debounced autocomplete suggestions
+│   │   ├── useAIAnswer.ts       # Streaming LLM answer; thread (MAX 6 pairs); appendExchange
+│   │   ├── useAskBrain.ts       # Ask Brain single query; onExchange callback
+│   │   ├── useAudioOverview.ts  # Web Speech Synthesis; idle/speaking/paused tri-state
+│   │   ├── useDeepResearch.ts   # 3-phase deep research state machine
+│   │   ├── usePeopleAlsoAsk.ts  # PAA generation + toggle + mini-answers; abort signal
+│   │   ├── usePrism.ts          # PrismJS lazy-load + syntax highlight
+│   │   ├── useResultKeyboard.ts # j/k/o/e/Escape card keyboard navigation
+│   │   ├── useResultsPage.ts    # All Results.tsx logic: state, effects, handlers, shortcuts
+│   │   ├── useSearch.ts         # Core search: debounce, URL sync, LRU cache, fetch-more
+│   │   ├── useSuggest.ts        # Debounced suggestions + hover prefetch + trending cache
+│   │   ├── useUrlSummarizer.ts  # URL proxy fetch + llmStream + structured output parse
+│   │   └── useVoiceSearch.ts    # Web Speech Recognition; idle/listening/error tri-state
 │   ├── lib/
-│   │   ├── clusterResults.ts    # Group results by domain cluster
+│   │   ├── clusterResults.ts    # Group results by similarity gap
 │   │   ├── collections.ts       # localStorage saved-answers CRUD
 │   │   ├── density.ts           # Result density scoring helper
-│   │   ├── highlight.tsx        # Query-term <mark> highlighter
-│   │   ├── parseOperators.ts    # Boolean operator parser (domain:, site:)
-│   │   ├── recentSearches.ts    # localStorage recent-searches ring buffer
+│   │   ├── domainPrefs.ts       # Boost/block domain preferences (localStorage)
+│   │   ├── highlight.tsx        # Shared query-term <mark> highlighter
+│   │   ├── lenses.ts            # Lens type + CRUD + PRESET_LENSES
+│   │   ├── parseOperators.ts    # Inline operator parser (domain:, -domain:, "phrase", confidence:)
+│   │   ├── recentSearches.ts    # localStorage recent/saved searches ring buffer
 │   │   ├── registerSW.ts        # Service worker registration
-│   │   └── theme.ts             # Dark/light theme toggle
+│   │   ├── theme.ts             # System/dark/light theme; initTheme; data-theme attr
+│   │   ├── verifyCitations.ts   # Citation key-term overlap verification (40% threshold)
+│   │   └── zeroResults.ts       # Zero-result query logging + retrieval (localStorage)
 │   ├── pages/
 │   │   ├── Home.tsx             # Landing page with centered SearchBar
 │   │   └── Results.tsx          # Search results page (main orchestrator)
