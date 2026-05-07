@@ -16,6 +16,7 @@ import { AISummary } from '../components/AISummary'
 import { AIModeCard } from '../components/AIModeCard'
 import { CollectionsPanel } from '../components/CollectionsPanel'
 import { UrlSummarizer } from '../components/UrlSummarizer'
+import { DeepResearchPanel } from '../components/DeepResearchPanel'
 import { useResultsPage } from '../hooks/useResultsPage'
 
 export function Results() {
@@ -51,6 +52,13 @@ export function Results() {
         open={p.urlSummaryOpen}
         onClose={() => p.setUrlSummaryOpen(false)}
         onSearch={q => { search.setQuery(q); p.setUrlSummaryOpen(false) }}
+      />
+      <DeepResearchPanel
+        open={p.deepResearchOpen}
+        query={search.query}
+        domain={search.domains[0]}
+        onClose={() => p.setDeepResearchOpen(false)}
+        onSearch={q => { search.setQuery(q); p.setDeepResearchOpen(false) }}
       />
       <OfflineBanner />
       <ProgressBar loading={search.loading} />
@@ -91,6 +99,12 @@ export function Results() {
               className={`px-2.5 py-2 transition-colors text-sm ${p.urlSummaryOpen ? 'text-amber-400 bg-amber-400/10' : 'text-gray-500 hover:text-gray-200 hover:bg-subtle'}`}>
               🔗
             </button>
+            {search.query && (
+              <button onClick={() => p.setDeepResearchOpen(true)} title="Deep Research — multi-query synthesis"
+                className={`px-2.5 py-2 transition-colors text-sm ${p.deepResearchOpen ? 'text-violet-400 bg-violet-400/10' : 'text-gray-500 hover:text-violet-400 hover:bg-subtle'}`}>
+                🔬
+              </button>
+            )}
             <button onClick={p.openCollections} title="Saved answers (Alt+C)"
               className={`px-2.5 py-2 transition-colors text-sm ${p.collectionsOpen ? 'text-amber-400 bg-amber-400/10' : 'text-gray-500 hover:text-gray-200 hover:bg-subtle'}`}>
               🗂
