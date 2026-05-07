@@ -29,19 +29,22 @@ jobs:
           VITE_NEURONX_API_URL: https://neuronx.jagatab.uk
           VITE_NEURONX_API_KEY: ${{ secrets.VITE_NEURONX_API_KEY }}
 
-      - name: Install SSH key
-        uses: shimataro/ssh-key-action@v2
-        with:
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          known_hosts: ${{ secrets.SSH_KNOWN_HOSTS }}
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
 
       - name: Deploy via rsync
         run: |
           rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes" \
             dist/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
 
       - name: Reload nginx
         run: |
-          ssh ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
             "sudo systemctl reload nginx"
