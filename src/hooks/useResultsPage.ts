@@ -25,6 +25,7 @@ export function useResultsPage() {
   const [collectionsOpen, setCollectionsOpen] = useState(false)
   const [urlSummaryOpen, setUrlSummaryOpen] = useState(false)
   const [deepResearchOpen, setDeepResearchOpen] = useState(false)
+  const [compareOpen, setCompareOpen] = useState(false)
   const [theme, setThemeState] = useState<Theme>(getTheme)
   const [aiMode, setAiMode] = useState(() => localStorage.getItem('nx-ai-mode') === '1')
   const [answerStyle, setAnswerStyle] = useState<AnswerStyle>(
@@ -197,6 +198,7 @@ export function useResultsPage() {
     setDetailResult, setExplainResult, setPaletteOpen, setAnalyticsOpen, setCollectionsOpen,
     urlSummaryOpen, setUrlSummaryOpen,
     deepResearchOpen, setDeepResearchOpen,
+    compareOpen, setCompareOpen,
     // handlers
     toggleAiMode, handleAnswerStyleChange, cycleTheme,
     openAnalytics, openCollections,

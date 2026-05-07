@@ -17,6 +17,7 @@ import { AIModeCard } from '../components/AIModeCard'
 import { CollectionsPanel } from '../components/CollectionsPanel'
 import { UrlSummarizer } from '../components/UrlSummarizer'
 import { DeepResearchPanel } from '../components/DeepResearchPanel'
+import { AnswerCompare } from '../components/AnswerCompare'
 import { useResultsPage } from '../hooks/useResultsPage'
 
 export function Results() {
@@ -59,6 +60,12 @@ export function Results() {
         domain={search.domains[0]}
         onClose={() => p.setDeepResearchOpen(false)}
         onSearch={q => { search.setQuery(q); p.setDeepResearchOpen(false) }}
+      />
+      <AnswerCompare
+        open={p.compareOpen}
+        query={search.query}
+        results={search.allResults}
+        onClose={() => p.setCompareOpen(false)}
       />
       <OfflineBanner />
       <ProgressBar loading={search.loading} />
@@ -103,6 +110,12 @@ export function Results() {
               <button onClick={() => p.setDeepResearchOpen(true)} title="Deep Research — multi-query synthesis"
                 className={`px-2.5 py-2 transition-colors text-sm ${p.deepResearchOpen ? 'text-violet-400 bg-violet-400/10' : 'text-gray-500 hover:text-violet-400 hover:bg-subtle'}`}>
                 🔬
+              </button>
+            )}
+            {search.query && search.allResults.length > 0 && (
+              <button onClick={() => p.setCompareOpen(true)} title="Compare Answers — two prompt styles side by side"
+                className={`px-2.5 py-2 transition-colors text-sm ${p.compareOpen ? 'text-amber-400 bg-amber-400/10' : 'text-gray-500 hover:text-amber-400 hover:bg-subtle'}`}>
+                ⚖
               </button>
             )}
             <button onClick={p.openCollections} title="Saved answers (Alt+C)"
