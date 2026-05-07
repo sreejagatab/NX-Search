@@ -10,7 +10,7 @@ interface Props {
 export function AnalyticsPanel({ open, onClose }: Props) {
   const [tab, setTab] = useState<'stats' | 'zero'>('stats')
   const recent = useMemo(() => getRecent(), [open])
-  const zeroResults = useMemo(() => getZeroResults(), [open])
+  const [zeroResults, setZeroResultsState] = useState(() => getZeroResults())
 
   const stats = useMemo(() => {
     if (recent.length === 0) return null
@@ -157,7 +157,7 @@ export function AnalyticsPanel({ open, onClose }: Props) {
               </p>
               {zeroResults.length > 0 && (
                 <button
-                  onClick={() => { clearZeroResults(); window.location.reload() }}
+                  onClick={() => { clearZeroResults(); setZeroResultsState([]) }}
                   className="text-[10px] text-gray-700 hover:text-red-400 transition-colors"
                 >Clear</button>
               )}

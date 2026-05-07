@@ -255,9 +255,10 @@ export function useSearch() {
       const ops = parseOperators(query)
       const effectiveQ = ops.cleanQuery || query
       const effectiveDoms = ops.domains.length > 0 ? [...new Set([...domains, ...ops.domains])] : domains
-      const fetcher = mode === 'hybrid'
+      const fetchMode: SearchMode = depth === 'quick' ? 'pattern' : depth === 'deep' ? 'hybrid' : mode
+      const fetcher = fetchMode === 'hybrid'
         ? searchHybrid(effectiveQ, FETCH_LIMIT, 0.7, effectiveDoms[0] ?? '')
-        : mode === 'semantic'
+        : fetchMode === 'semantic'
           ? searchSemantic(effectiveQ, FETCH_LIMIT, 0.7, effectiveDoms[0] ?? '')
           : searchPatterns(effectiveQ, effectiveDoms[0] ?? '', FETCH_LIMIT)
       // Append page-2 results by requesting with a larger per_page equivalent

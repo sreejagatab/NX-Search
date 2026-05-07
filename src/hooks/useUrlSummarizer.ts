@@ -53,7 +53,7 @@ export function useUrlSummarizer() {
       await llmStream(
         '/v1/chat/completions',
         {
-          model: 'qwen3-72b',
+          model: 'neuronx',
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },

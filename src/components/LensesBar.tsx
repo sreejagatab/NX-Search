@@ -26,11 +26,10 @@ export function LensesBar({ domains, mode, sort, minConfidence, onApply }: Props
 
   function handleSave() {
     if (!newName.trim()) return
-    const lens = saveLens({ name: newName.trim(), domains, mode, sort, minConfidence })
+    saveLens({ name: newName.trim(), domains, mode, sort, minConfidence })
     setLenses(getLenses())
     setNewName('')
     setSaving(false)
-    onApply(lens)
   }
 
   function handleDelete(id: string, e: React.MouseEvent) {
@@ -54,7 +53,9 @@ export function LensesBar({ domains, mode, sort, minConfidence, onApply }: Props
 
   const allLenses = lenses
 
-  if (allLenses.length === 0 && !hasActiveFilters && !saving) return null
+  // Only hide if nothing to show at all — always show presets so new users can discover lenses
+  const hasPresets = PRESET_LENSES.length > 0
+  if (allLenses.length === 0 && !hasActiveFilters && !saving && !hasPresets) return null
 
   return (
     <div className="flex items-center gap-1.5 px-4 pb-2 max-w-7xl mx-auto overflow-x-auto scrollbar-none">

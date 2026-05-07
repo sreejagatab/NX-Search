@@ -1,7 +1,6 @@
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useDeepResearch } from '../hooks/useDeepResearch'
-import type { SearchResult } from '../types'
 
 interface Props {
   open: boolean
@@ -9,7 +8,6 @@ interface Props {
   domain?: string
   onClose: () => void
   onSearch?: (q: string) => void
-  onResultsReady?: (results: SearchResult[]) => void
 }
 
 export function DeepResearchPanel({ open, query, domain, onClose, onSearch }: Props) {
