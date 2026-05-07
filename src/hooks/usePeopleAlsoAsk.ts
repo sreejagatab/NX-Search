@@ -33,9 +33,9 @@ export function usePeopleAlsoAsk() {
     try {
       const questions = await generateRelatedQuestions(query, results, mainAnswer, abortRef.current.signal)
       setItems(questions.map(q => ({ question: q, answer: '', loading: false, expanded: false })))
-    } catch { /* abort or network error */ }
-
-    setGenerating(false)
+    } catch { /* abort or network error */ } finally {
+      setGenerating(false)
+    }
   }, [])
 
   const toggle = useCallback(async (index: number, results: SearchResult[]) => {
@@ -65,8 +65,8 @@ export function usePeopleAlsoAsk() {
           if (next[index]) next[index] = { ...next[index], answer: next[index].answer + token }
           return next
         })
-      })
-    } catch { /* ignore */ }
+      }, abortRef.current?.signal)
+    } catch { /* abort */ }
 
     setItems(prev => {
       const next = [...prev]

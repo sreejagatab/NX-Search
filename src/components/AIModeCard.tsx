@@ -207,13 +207,20 @@ export function AIModeCard({
             <div className="space-y-1.5">
               {paaItems.map((item, i) => (
                 <div key={i} className="border border-border rounded-xl overflow-hidden">
-                  <button
-                    onClick={() => paaToggle(i, results)}
-                    className="w-full flex items-center justify-between px-3.5 py-2.5 text-left text-sm text-gray-300 hover:text-gray-100 hover:bg-subtle transition-colors"
-                  >
-                    <span className="pr-3">{item.question}</span>
-                    <span className="text-[10px] text-gray-600 shrink-0">{item.expanded ? '▲' : '▼'}</span>
-                  </button>
+                  <div className="flex items-center">
+                    <button
+                      onClick={() => paaToggle(i, results)}
+                      className="flex-1 flex items-center justify-between px-3.5 py-2.5 text-left text-sm text-gray-300 hover:text-gray-100 hover:bg-subtle transition-colors"
+                    >
+                      <span className="pr-3">{item.question}</span>
+                      <span className="text-[10px] text-gray-600 shrink-0">{item.expanded ? '▲' : '▼'}</span>
+                    </button>
+                    <button
+                      onClick={() => onFollowUp?.(item.question)}
+                      className="px-2.5 py-2.5 text-[10px] text-gray-600 hover:text-amber-400 shrink-0 border-l border-border transition-colors"
+                      title="Search this question"
+                    >Search →</button>
+                  </div>
                   {item.expanded && (
                     <div className="px-3.5 py-2.5 border-t border-border bg-subtle/50 text-xs text-gray-400 leading-relaxed">
                       {item.loading && !item.answer && (
