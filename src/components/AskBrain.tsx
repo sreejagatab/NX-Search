@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useAskBrain } from '../hooks/useAskBrain'
@@ -7,6 +7,7 @@ import type { AnswerStyle } from '../api/search'
 import type { SearchResult } from '../types'
 import type { ThreadMessage } from '../hooks/useAIAnswer'
 import { ThreadView } from './ThreadView'
+import { verifyCitations, citationConfidenceScore } from '../lib/verifyCitations'
 
 interface Props {
   query: string
@@ -40,8 +41,8 @@ function extractFollowUps(answer: string, query: string): string[] {
   return [`How does ${query} work?`, `Best practices for ${query}`, `${query} examples`].slice(0, 3)
 }
 
-// Parse [1], [2] citations from answer text
-function parseCitations(answer: string): Set<number> {
+// Parse [1], [2] citations from answer text (for cited results list)
+function parseCitedIndices(answer: string): Set<number> {
   const found = new Set<number>()
   const matches = answer.matchAll(/\[(\d+)\]/g)
   for (const m of matches) found.add(parseInt(m[1]))
@@ -87,9 +88,15 @@ export function AskBrain({ query, results, visible, onClose, onFollowUp, explain
     setCopied(true); setTimeout(() => setCopied(false), 1500)
   }
 
-  const citations = answer ? parseCitations(answer) : new Set<number>()
-  const citedResults = results.slice(0, 5).filter((_, i) => citations.has(i + 1))
+  const citedIndices = answer ? parseCitedIndices(answer) : new Set<number>()
+  const citedResults = results.slice(0, 5).filter((_, i) => citedIndices.has(i + 1))
   const followUps = !loading && answer.length > 100 ? extractFollowUps(answer, query) : []
+
+  const verifications = useMemo(
+    () => (!loading && answer ? verifyCitations(answer, results.slice(0, 5)) : []),
+    [answer, loading, results]
+  )
+  const citationScore = useMemo(() => citationConfidenceScore(verifications), [verifications])
 
   if (!visible) return null
 
@@ -103,6 +110,16 @@ export function AskBrain({ query, results, visible, onClose, onFollowUp, explain
           <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
           <span className="text-sm font-medium text-gray-200">Brain 72B</span>
           {isCached && <span className="text-[10px] text-gray-600 border border-gray-700 rounded px-1">cached</span>}
+          {!loading && verifications.length > 0 && (
+            <span
+              className={`text-[10px] border rounded px-1 ${
+                citationScore >= 70 ? 'text-green-400 border-green-800/40' : citationScore >= 40 ? 'text-amber-400 border-amber-800/40' : 'text-red-400 border-red-800/40'
+              }`}
+              title={`Citation confidence: ${citationScore}% of cited sources verified`}
+            >
+              cit {citationScore}%
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {/* Answer style selector */}
@@ -171,17 +188,29 @@ export function AskBrain({ query, results, visible, onClose, onFollowUp, explain
               </div>
             )}
 
-            {/* Citations */}
+            {/* Citations with verification */}
             {citedResults.length > 0 && (
               <div className="mt-3 pt-3 border-t border-border">
                 <p className="text-xs text-gray-600 mb-2">Sources cited</p>
                 <div className="space-y-1">
-                  {citedResults.map((r, i) => (
-                    <div key={r.id} className="text-xs text-gray-500 flex gap-1.5">
-                      <span className="text-amber-400/60 shrink-0">[{i + 1}]</span>
-                      <span className="truncate">{r.content.slice(0, 60)}…</span>
-                    </div>
-                  ))}
+                  {citedResults.map((r, i) => {
+                    const citNum = i + 1
+                    const v = verifications.find(cv => cv.index === citNum)
+                    return (
+                      <div key={r.id} className="text-xs flex gap-1.5 items-start">
+                        <span className={`shrink-0 ${v ? (v.verified ? 'text-green-400/70' : 'text-amber-400/60') : 'text-gray-600'}`}>[{citNum}]</span>
+                        <span className="text-gray-500 truncate flex-1">{r.content.slice(0, 60)}…</span>
+                        {v && (
+                          <span
+                            className={`shrink-0 text-[9px] ${v.verified ? 'text-green-500' : 'text-amber-500'}`}
+                            title={v.verified ? `Verified: "${v.matchedPhrase}"` : 'Claim not directly found in source'}
+                          >
+                            {v.verified ? '✓' : '?'}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
