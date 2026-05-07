@@ -2,34 +2,16 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { fetchSuggestions } from '../api/search'
 import { searchSemantic, searchHybrid, searchPatterns } from '../api/search'
 import { searchCache, cacheKey, cacheSet } from './useSearch'
-import { apiFetch } from '../api/client'
 import type { SearchMode } from '../types'
 
-interface TrendingItem { query: string; count: number; avg_time_ms: number }
-
-let trendingCache: string[] = []
-let trendingFetched = false
-
-async function fetchTrending(): Promise<string[]> {
-  if (trendingFetched) return trendingCache
-  trendingFetched = true
-  try {
-    const data = await apiFetch<TrendingItem[]>('/api/search/v2/trending')
-    trendingCache = Array.isArray(data) ? data.map(t => t.query).filter(Boolean).slice(0, 8) : []
-  } catch { trendingCache = [] }
-  return trendingCache
-}
+// /api/search/v2/trending always returns 502 server-side — endpoint is broken.
+// trending is kept as an empty array; the SearchBar dropdown only renders when length > 0.
 
 export function useSuggest(query: string) {
   const [suggestions, setSuggestions] = useState<string[]>([])
-  const [trending, setTrending] = useState<string[]>([])
+  const trending: string[] = []
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const prefetchTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
-
-  // Load trending once on mount
-  useEffect(() => {
-    fetchTrending().then(t => setTrending(t)).catch(() => {})
-  }, [])
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
