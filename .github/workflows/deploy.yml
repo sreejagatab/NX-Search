@@ -35,7 +35,6 @@ jobs:
           mkdir -p ~/.ssh
           printf '%s\n' "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
-          # Use accept-new so an empty known_hosts doesn't block the deploy
           echo "StrictHostKeyChecking accept-new" >> ~/.ssh/config
 
       - name: Deploy via rsync
@@ -49,4 +48,4 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "sudo systemctl reload nginx"
+            "sudo /usr/local/bin/reload-nginx"
