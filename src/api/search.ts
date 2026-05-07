@@ -1,72 +1,298 @@
-import { apiFetch, apiStream } from './client'
-import type { SearchResponse, DomainsResponse, StatsResponse, SuggestResponse, SearchResult } from '../types'
+import { apiFetch, llmStream } from './client'
+import type { SearchResponse, DomainsResponse, StatsResponse, SuggestResponse, SearchResult, FocusMode } from '../types'
 
-export function searchPatterns(q: string, domain = '', limit = 50): Promise<SearchResponse> {
-  const params = new URLSearchParams({ q, limit: String(limit) })
-  if (domain) params.set('domain', domain)
-  return apiFetch<SearchResponse>(`/api/search?${params}`)
+// Raw shape returned by the v2 API
+interface V2Result {
+  title: string
+  url: string
+  snippet: string
+  source: string
+  engine: string
+  file_path?: string
+  hit_count?: number
+  score: number
+  engines?: string[]
 }
 
-export function searchSemantic(q: string, limit = 50, threshold = 0.7): Promise<SearchResponse> {
-  const params = new URLSearchParams({ q, limit: String(limit), threshold: String(threshold) })
-  return apiFetch<SearchResponse>(`/api/search/semantic?${params}`)
+interface V2Response {
+  query: string
+  intent?: string
+  intent_confidence?: number
+  ai_summary?: string
+  results: V2Result[]
+  total: number
+  page: number
+  per_page: number
+  query_time_ms: number
+  engines_used?: string[]
+  related_searches?: string[]
+  sources?: Record<string, number>
 }
 
-export async function searchHybrid(q: string, limit = 50, threshold = 0.7, domain = ''): Promise<SearchResponse> {
-  const [semResp, patResp] = await Promise.allSettled([
-    searchSemantic(q, limit, threshold),
-    searchPatterns(q, domain, limit),
-  ])
+const SOURCE_LABELS: Record<string, string> = {
+  'neuronx_memory.db': 'Internal',
+  'codebase': 'Codebase',
+}
 
-  const semResults: SearchResult[] = semResp.status === 'fulfilled' ? semResp.value.results : []
-  const patResults: SearchResult[] = patResp.status === 'fulfilled' ? patResp.value.results : []
-  const semTime = semResp.status === 'fulfilled' ? semResp.value.query_time_ms : 0
-  const patTime = patResp.status === 'fulfilled' ? patResp.value.query_time_ms : 0
-
-  // RRF merge: score = 1/(60+rank_sem) + 1/(60+rank_pat)
-  const K = 60
-  const scores = new Map<string, number>()
-  const byId = new Map<string, SearchResult>()
-
-  semResults.forEach((r, rank) => {
-    byId.set(r.id, r)
-    scores.set(r.id, (scores.get(r.id) ?? 0) + 1 / (K + rank))
+function mapResults(raw: V2Result[]): SearchResult[] {
+  if (!raw.length) return []
+  const maxScore = Math.max(...raw.map(r => r.score), 0.001)
+  return raw.map((r, i) => {
+    // For codebase results, bare shebang snippets are useless — promote file_path
+    const isShebang = r.snippet.trim().startsWith('#!')
+    const content = isShebang && r.file_path
+      ? `${r.file_path}\n\n${r.snippet}`
+      : r.snippet
+    const title = r.title || (r.file_path ? r.file_path.split('/').pop() : undefined)
+    const relScore = r.score / maxScore
+    const source = SOURCE_LABELS[r.source] ?? r.source
+    return {
+      id: r.url || r.file_path || String(i),
+      title,
+      url: r.url && !r.url.startsWith('file://') ? r.url : undefined,
+      content,
+      domain: r.engine,
+      source,
+      confidence: relScore,
+      similarity: relScore,
+      file_path: r.file_path,
+      hit_count: r.hit_count,
+      engines: r.engines,
+    }
   })
-  patResults.forEach((r, rank) => {
-    byId.set(r.id, r)
-    scores.set(r.id, (scores.get(r.id) ?? 0) + 1 / (K + rank))
+}
+
+async function v2Search(query: string, filters: Record<string, string> = {}): Promise<SearchResponse> {
+  const body: Record<string, unknown> = { query, filters, per_page: 20, page: 1 }
+  const raw = await apiFetch<V2Response>('/api/search/v2/search', {
+    method: 'POST',
+    body: JSON.stringify(body),
   })
-
-  const merged = [...byId.values()]
-    .sort((a, b) => (scores.get(b.id) ?? 0) - (scores.get(a.id) ?? 0))
-    .slice(0, limit)
-    .map(r => ({ ...r, similarity: Math.min(1, (scores.get(r.id) ?? 0) * K) }))
-
   return {
-    results: merged,
-    total: merged.length,
-    query_time_ms: Math.max(semTime, patTime),
+    results: mapResults(raw.results),
+    total: raw.total,
+    query_time_ms: raw.query_time_ms,
+    ai_summary: raw.ai_summary,
+    intent: raw.intent,
+    intent_confidence: raw.intent_confidence,
+    related_searches: raw.related_searches,
+    sources: raw.sources,
+    engines_used: raw.engines_used,
   }
 }
 
+// Only 'web' engine filter works reliably server-side; code/academic cause 502/timeout.
+// Other engine types are filtered client-side from mixed results.
+function engineFilter(domain: string): Record<string, string> {
+  return domain === 'web' ? { engine: 'web' } : {}
+}
+
+// mode=semantic → all sources, AI-ranked; web-only if domain='web'
+export function searchSemantic(q: string, _limit = 20, _threshold = 0.7, domain = ''): Promise<SearchResponse> {
+  return v2Search(q, engineFilter(domain))
+}
+
+// mode=pattern → same as semantic (code engine filter causes 502 server-side)
+export function searchPatterns(q: string, domain = '', _limit = 20): Promise<SearchResponse> {
+  return v2Search(q, engineFilter(domain))
+}
+
+// mode=hybrid → all engines unless web-only requested
+export function searchHybrid(q: string, _limit = 20, _threshold = 0.7, domain = ''): Promise<SearchResponse> {
+  return v2Search(q, engineFilter(domain))
+}
+
+// Available domains: 'web' and 'code' appear naturally; 'web' also supports API-level filtering
 export function fetchDomains(): Promise<DomainsResponse> {
-  return apiFetch<DomainsResponse>('/api/search/domains')
+  return Promise.resolve({ domains: ['web', 'code'] })
 }
 
+// No stats endpoint — return placeholder values
 export function fetchStats(): Promise<StatsResponse> {
-  return apiFetch<StatsResponse>('/api/search/stats')
+  return Promise.resolve({ total_patterns: 257000, total_vectors: 210000, domains: {} })
 }
 
-export function fetchSuggestions(q: string): Promise<SuggestResponse> {
-  const params = new URLSearchParams({ q })
-  return apiFetch<SuggestResponse>(`/api/search/suggest?${params}`)
+export async function fetchSuggestions(q: string): Promise<SuggestResponse> {
+  const suggestions = await apiFetch<string[]>(`/api/search/v2/suggest?q=${encodeURIComponent(q)}`)
+  return { suggestions: Array.isArray(suggestions) ? suggestions : [] }
 }
 
+export interface ThreadMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export type AnswerStyle = 'concise' | 'detailed' | 'eli5' | 'bullets'
+
+export const ANSWER_STYLES: { value: AnswerStyle; label: string }[] = [
+  { value: 'concise', label: 'Concise' },
+  { value: 'detailed', label: 'Detailed' },
+  { value: 'eli5', label: 'ELI5' },
+  { value: 'bullets', label: 'Bullets' },
+]
+
+const ANSWER_STYLE_PROMPTS: Record<AnswerStyle, string> = {
+  concise:  '- Answer in 2-3 clear, direct sentences. Key facts only.',
+  detailed: '- Give a thorough answer. Use ## headers and bullet points to structure long answers. Cover all relevant aspects.',
+  eli5:     '- Explain as if to someone with no background knowledge. Use plain language, short sentences, and simple analogies. No jargon.',
+  bullets:  '- Always respond as a structured markdown bullet list. Use sub-bullets for detail. No prose paragraphs.',
+}
+
+const FOCUS_PROMPTS: Record<FocusMode, string> = {
+  research: 'You are a comprehensive research assistant. Synthesize information across sources with depth and accuracy.',
+  web: 'You are a factual web search assistant. Prioritize accuracy, recency, and information directly from the web results.',
+  code: 'You are an expert software developer. Focus on code patterns, technical implementation, best practices, and include usage examples where relevant.',
+  quick: '', // Quick mode disables AI entirely
+}
+
+// AI Mode — calls the NeuronX vLLM at /v1/chat/completions with top results as context.
+// Accepts optional thread history so follow-up queries retain conversation context.
+export function generateAIAnswer(
+  query: string,
+  results: SearchResult[],
+  onToken: (token: string) => void,
+  signal?: AbortSignal,
+  thread: ThreadMessage[] = [],
+  answerStyle: AnswerStyle = 'concise',
+  focusMode: FocusMode = 'research',
+): Promise<void> {
+  const top = results.slice(0, 6)
+  const context = top.map((r, i) => {
+    const label = r.title ?? r.file_path ?? `Result ${i + 1}`
+    const snippet = r.content.slice(0, 350).replace(/\n+/g, ' ')
+    return `[${i + 1}] ${label}: ${snippet}`
+  }).join('\n\n')
+
+  const styleInstruction = ANSWER_STYLE_PROMPTS[answerStyle]
+  const focusInstruction = FOCUS_PROMPTS[focusMode] ? `${FOCUS_PROMPTS[focusMode]}\n` : ''
+
+  const systemPrompt = `${focusInstruction}You are a precise AI assistant. Search results are provided as context.
+${styleInstruction}
+- Cite sources inline as [1], [2], [3] etc.
+- Use **bold** for key terms
+- If the results don't fully answer the question, state that briefly
+- Do not invent information not present in the results`
+
+  const contextMessage = `Search results for "${query}":\n\n${context}\n\nAnswer the question: "${query}"`
+
+  // Build messages: system + thread history + new context+question
+  const messages = [
+    { role: 'system' as const, content: systemPrompt },
+    ...thread,
+    { role: 'user' as const, content: contextMessage },
+  ]
+
+  return llmStream(
+    '/v1/chat/completions',
+    { model: 'neuronx', messages, max_tokens: 500, stream: true },
+    onToken,
+    signal,
+  )
+}
+
+// People Also Ask — generates 3 follow-up questions from query + main answer + context
+export async function generateRelatedQuestions(
+  query: string,
+  results: SearchResult[],
+  mainAnswer: string,
+  signal?: AbortSignal,
+): Promise<string[]> {
+  const context = results.slice(0, 4)
+    .map((r, i) => `[${i + 1}] ${r.content.slice(0, 200).replace(/\n+/g, ' ')}`)
+    .join('\n')
+
+  const prompt = `Given this search query: "${query}"
+
+Main answer summary: "${mainAnswer.slice(0, 400)}"
+
+Search result excerpts:
+${context}
+
+Generate exactly 3 natural follow-up questions a user would ask about this topic. Return ONLY a valid JSON array of 3 strings, no other text. Example format: ["Question one?", "Question two?", "Question three?"]`
+
+  return new Promise<string[]>(resolve => {
+    let raw = ''
+    llmStream(
+      '/v1/chat/completions',
+      { model: 'neuronx', messages: [{ role: 'user', content: prompt }], max_tokens: 150, stream: true },
+      token => { raw += token },
+      signal,
+    ).then(() => {
+      try {
+        const match = raw.match(/\[[\s\S]*?\]/)
+        if (match) {
+          const parsed = JSON.parse(match[0]) as unknown[]
+          if (Array.isArray(parsed) && parsed.every(q => typeof q === 'string')) {
+            resolve((parsed as string[]).slice(0, 3))
+            return
+          }
+        }
+      } catch { /* fall through */ }
+      resolve([])
+    }).catch(() => resolve([]))
+  })
+}
+
+// People Also Ask — generates a short 2-3 sentence answer for a single follow-up question
+export function generateMiniAnswer(
+  question: string,
+  results: SearchResult[],
+  onToken: (token: string) => void,
+  signal?: AbortSignal,
+): Promise<void> {
+  const context = results.slice(0, 4)
+    .map((r, i) => `[${i + 1}] ${r.content.slice(0, 250).replace(/\n+/g, ' ')}`)
+    .join('\n')
+
+  const prompt = `Answer this question in 2-3 sentences using only the context below.
+
+Question: "${question}"
+
+Context:
+${context}
+
+Rules:
+- 2-3 sentences maximum
+- Direct and factual, no filler
+- If context lacks the answer, say so briefly`
+
+  return llmStream(
+    '/v1/chat/completions',
+    { model: 'neuronx', messages: [{ role: 'user', content: prompt }], max_tokens: 120, stream: true },
+    onToken,
+    signal,
+  )
+}
+
+// Ask Brain — calls the NeuronX vLLM for a detailed, structured answer
 export function askBrain(
   query: string,
   contextResults: Array<{ content: string }>,
   onToken: (token: string) => void,
   signal?: AbortSignal,
+  answerStyle: AnswerStyle = 'detailed',
 ): Promise<void> {
-  return apiStream('/api/search/ask', { query, context_results: contextResults }, onToken, signal)
+  const context = contextResults
+    .map((r, i) => `[${i + 1}] ${r.content.slice(0, 350).replace(/\n+/g, ' ')}`)
+    .join('\n\n')
+
+  const styleInstruction = ANSWER_STYLE_PROMPTS[answerStyle]
+
+  const prompt = `You are a deep knowledge assistant. Using only the context below, answer: "${query}"
+
+Context:
+${context}
+
+Rules:
+${styleInstruction}
+- Cite sources inline as [1], [2], [3] etc.
+- Use **bold** for key terms
+- If context is insufficient, say so clearly`
+
+  return llmStream(
+    '/v1/chat/completions',
+    { model: 'neuronx', messages: [{ role: 'user', content: prompt }], max_tokens: 800, stream: true },
+    onToken,
+    signal,
+  )
 }

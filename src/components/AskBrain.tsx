@@ -2,7 +2,11 @@ import { useEffect, useRef, useState, useCallback } from 'react'
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
 import { useAskBrain } from '../hooks/useAskBrain'
+import { ANSWER_STYLES } from '../api/search'
+import type { AnswerStyle } from '../api/search'
 import type { SearchResult } from '../types'
+import type { ThreadMessage } from '../hooks/useAIAnswer'
+import { ThreadView } from './ThreadView'
 
 interface Props {
   query: string
@@ -10,6 +14,10 @@ interface Props {
   visible: boolean
   onClose: () => void
   onFollowUp?: (q: string) => void
+  explainResult?: SearchResult | null
+  onExplainDone?: () => void
+  thread?: ThreadMessage[]
+  onClearThread?: () => void
 }
 
 // Minimal safe markdown render
@@ -39,21 +47,34 @@ function parseCitations(answer: string): Set<number> {
   return found
 }
 
-export function AskBrain({ query, results, visible, onClose, onFollowUp }: Props) {
+export function AskBrain({ query, results, visible, onClose, onFollowUp, explainResult, onExplainDone, thread = [], onClearThread }: Props) {
   const { answer, loading, error, ask, abort, reset } = useAskBrain()
   const [lastQuery, setLastQuery] = useState('')
   const [copied, setCopied] = useState(false)
+  const [answerStyle, setAnswerStyle] = useState<AnswerStyle>(() => (localStorage.getItem('nx-answer-style') as AnswerStyle) ?? 'detailed')
   const answerRef = useRef<HTMLDivElement>(null)
 
   const triggerAsk = useCallback(() => {
-    if (query && results.length > 0) { ask(query, results); setLastQuery(query) }
-  }, [query, results, ask])
+    if (query && results.length > 0) { ask(query, results, answerStyle); setLastQuery(query) }
+  }, [query, results, ask, answerStyle])
+
+  // Handle per-result explain mode
+  useEffect(() => {
+    if (visible && explainResult) {
+      const explainQuery = `Explain this in detail: ${explainResult.title ?? explainResult.domain}`
+      ask(explainQuery, [explainResult], 'detailed')
+      setLastQuery(explainQuery)
+      onExplainDone?.()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [explainResult])
 
   useEffect(() => {
-    if (visible && query && query !== lastQuery) triggerAsk()
+    // Use fresh triggerAsk so it picks up latest results/answerStyle
+    if (visible && query && query !== lastQuery && !explainResult) triggerAsk()
     if (!visible && !lastQuery) reset()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, query])
+  }, [visible, query, triggerAsk])
 
   // auto-scroll answer as tokens arrive
   useEffect(() => {
@@ -83,6 +104,21 @@ export function AskBrain({ query, results, visible, onClose, onFollowUp }: Props
           {isCached && <span className="text-[10px] text-gray-600 border border-gray-700 rounded px-1">cached</span>}
         </div>
         <div className="flex items-center gap-2">
+          {/* Answer style selector */}
+          {!loading && (
+            <div className="flex items-center gap-0.5 bg-subtle rounded-lg p-0.5 border border-border">
+              {ANSWER_STYLES.map(s => (
+                <button
+                  key={s.value}
+                  onClick={() => { setAnswerStyle(s.value); localStorage.setItem('nx-answer-style', s.value) }}
+                  className={`text-[10px] px-1.5 py-0.5 rounded transition-colors ${answerStyle === s.value ? 'bg-amber-400/20 text-amber-400' : 'text-gray-600 hover:text-gray-300'}`}
+                  title={`Style: ${s.label}`}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          )}
           {!loading && answer && (
             <button onClick={triggerAsk} className="text-xs text-gray-500 hover:text-gray-200 transition-colors" title="Regenerate answer">↺</button>
           )}
@@ -95,6 +131,13 @@ export function AskBrain({ query, results, visible, onClose, onFollowUp }: Props
 
       {/* Answer */}
       <div ref={answerRef} className="flex-1 p-4 overflow-y-auto min-h-0">
+        {/* Prior thread exchanges from AI Mode */}
+        {thread.length > 0 && (
+          <div className="mb-3">
+            <p className="text-[10px] text-gray-700 uppercase tracking-wider mb-2">AI Mode history</p>
+            <ThreadView thread={thread} onClear={onClearThread ?? (() => {})} />
+          </div>
+        )}
         {error && <p className="text-red-400 text-sm">{error}</p>}
         {!error && !answer && loading && (
           <div className="flex items-center gap-2 text-gray-500 text-sm">

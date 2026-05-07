@@ -1,21 +1,21 @@
 import { useState } from 'react'
 import { DomainFilter } from './DomainFilter'
-import type { SearchMode } from '../types'
 
 interface Props {
   domains: string[]
   activeDomains: string[]
   domainCounts: Record<string, number>
   onDomainsChange: (ds: string[]) => void
-  mode: SearchMode
-  threshold: number
-  onThresholdChange: (t: number) => void
+  excludedDomains?: string[]
+  onExcludedDomainsChange?: (ds: string[]) => void
   minConfidence: number
   onMinConfidenceChange: (v: number) => void
   sources: string[]
   activeSources: string[]
   sourceCounts: Record<string, number>
   onSourcesChange: (s: string[]) => void
+  excludedSources?: string[]
+  onExcludedSourcesChange?: (s: string[]) => void
 }
 
 function SectionHeader({ label, count, open, onToggle }: { label: string; count?: number; open: boolean; onToggle: () => void }) {
@@ -35,15 +35,14 @@ function SectionHeader({ label, count, open, onToggle }: { label: string; count?
 
 export function SidebarFilters({
   domains, activeDomains, domainCounts, onDomainsChange,
-  mode, threshold, onThresholdChange,
+  excludedDomains = [], onExcludedDomainsChange,
   minConfidence, onMinConfidenceChange,
   sources, activeSources, sourceCounts, onSourcesChange,
+  excludedSources = [], onExcludedSourcesChange,
 }: Props) {
   const [domainsOpen, setDomainsOpen] = useState(true)
   const [sourcesOpen, setSourcesOpen] = useState(true)
   const [slidersOpen, setSlidersOpen] = useState(true)
-
-  const showThreshold = mode === 'semantic' || mode === 'hybrid'
 
   return (
     <div className="space-y-5">
@@ -56,13 +55,30 @@ export function SidebarFilters({
           onToggle={() => setDomainsOpen(v => !v)}
         />
         {domainsOpen && (
-          <DomainFilter
-            domains={domains}
-            activeDomains={activeDomains}
-            domainCounts={domainCounts}
-            onChange={onDomainsChange}
-            variant="checkboxes"
-          />
+          <>
+            <DomainFilter
+              domains={domains}
+              activeDomains={activeDomains}
+              domainCounts={domainCounts}
+              onChange={onDomainsChange}
+              variant="checkboxes"
+              excludedDomains={excludedDomains}
+              onExclude={onExcludedDomainsChange ? (d) => {
+                const excluded = excludedDomains.includes(d)
+                  ? excludedDomains.filter(x => x !== d)
+                  : [...excludedDomains, d]
+                onExcludedDomainsChange(excluded)
+                if (!excluded.includes(d)) return
+                // remove from active if being excluded
+                if (activeDomains.includes(d)) onDomainsChange(activeDomains.filter(x => x !== d))
+              } : undefined}
+            />
+            {excludedDomains.length > 0 && (
+              <p className="text-[10px] text-red-400/70 mt-1">
+                {excludedDomains.length} domain{excludedDomains.length > 1 ? 's' : ''} excluded
+              </p>
+            )}
+          </>
         )}
       </div>
 
@@ -76,24 +92,6 @@ export function SidebarFilters({
         <SectionHeader label="Filters" open={slidersOpen} onToggle={() => setSlidersOpen(v => !v)} />
         {slidersOpen && (
           <div className="space-y-4">
-            {showThreshold && (
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs text-gray-500">Min similarity</label>
-                  <span className="text-xs text-amber-400">{Math.round(threshold * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0.5" max="0.95" step="0.05"
-                  value={threshold}
-                  onChange={e => onThresholdChange(parseFloat(e.target.value))}
-                  className="w-full h-1.5 rounded-full appearance-none bg-subtle accent-amber-400 cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] text-gray-700 mt-0.5">
-                  <span>50%</span><span>95%</span>
-                </div>
-              </div>
-            )}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="text-xs text-gray-500">Min confidence</label>
@@ -127,22 +125,32 @@ export function SidebarFilters({
             <div className="space-y-1.5">
               {sources.map(s => {
                 const active = activeSources.includes(s)
+                const excluded = excludedSources.includes(s)
                 return (
-                  <button
+                  <div
                     key={s}
-                    onClick={() => onSourcesChange(active ? activeSources.filter(x => x !== s) : [...activeSources, s])}
-                    className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
-                      active ? 'bg-amber-400/10 text-amber-400' : 'text-gray-400 hover:bg-card hover:text-gray-200'
+                    className={`flex items-center gap-1 px-2 py-1.5 rounded-md transition-colors ${
+                      excluded ? 'bg-red-950/30 border border-red-800/30' : active ? 'bg-amber-400/10' : 'hover:bg-card'
                     }`}
                   >
-                    <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => onSourcesChange(active ? activeSources.filter(x => x !== s) : [...activeSources.filter(x => x !== s), s])}
+                      className="flex-1 flex items-center gap-2 text-sm text-left"
+                    >
                       <span className={`w-3 h-3 rounded-sm border flex items-center justify-center shrink-0 ${active ? 'bg-amber-400 border-amber-400' : 'border-gray-600'}`}>
                         {active && <span className="text-black text-[8px] leading-none">✓</span>}
                       </span>
-                      <span className="truncate">{s}</span>
-                    </div>
-                    <span className="text-xs text-gray-600">{sourceCounts[s] ?? 0}</span>
-                  </button>
+                      <span className={`truncate ${excluded ? 'line-through text-red-400/60' : active ? 'text-amber-400' : 'text-gray-400'}`}>{s}</span>
+                    </button>
+                    <span className="text-xs text-gray-600 mr-1">{sourceCounts[s] ?? 0}</span>
+                    {onExcludedSourcesChange && (
+                      <button
+                        onClick={() => onExcludedSourcesChange(excluded ? excludedSources.filter(x => x !== s) : [...excludedSources, s])}
+                        title={excluded ? 'Remove exclusion' : 'Exclude this source'}
+                        className={`text-xs w-4 h-4 flex items-center justify-center rounded transition-colors ${excluded ? 'text-red-400' : 'text-gray-600 hover:text-red-400'}`}
+                      >✕</button>
+                    )}
+                  </div>
                 )
               })}
             </div>

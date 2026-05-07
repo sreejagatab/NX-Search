@@ -4,6 +4,8 @@ interface Props {
   domainCounts?: Record<string, number>
   onChange: (domains: string[]) => void
   variant?: 'pills' | 'checkboxes'
+  excludedDomains?: string[]
+  onExclude?: (domain: string) => void
 }
 
 const DOMAIN_COLORS: Record<string, string> = {
@@ -46,7 +48,7 @@ export function DomainBadge({ domain }: { domain: string }) {
   )
 }
 
-export function DomainFilter({ domains, activeDomains, domainCounts, onChange, variant = 'pills' }: Props) {
+export function DomainFilter({ domains, activeDomains, domainCounts, onChange, variant = 'pills', excludedDomains = [], onExclude }: Props) {
   const toggle = (d: string) => {
     if (d === '') { onChange([]); return }
     const next = activeDomains.includes(d)
@@ -71,31 +73,48 @@ export function DomainFilter({ domains, activeDomains, domainCounts, onChange, v
             <span className="text-xs text-gray-500">{Object.values(domainCounts).reduce((a, b) => a + b, 0)}</span>
           )}
         </button>
-        {domains.map(d => (
-          <button
-            key={d}
-            onClick={() => toggle(d)}
-            className={`w-full flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors ${
-              isActive(d) ? 'bg-amber-400/10 text-amber-400' : 'text-gray-400 hover:bg-card hover:text-gray-200'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <span className={`w-3 h-3 rounded-sm border flex items-center justify-center shrink-0 ${isActive(d) ? 'bg-amber-400 border-amber-400' : 'border-gray-600'}`}>
-                {isActive(d) && <span className="text-black text-[8px] leading-none">✓</span>}
-              </span>
-              <span className="capitalize">{d}</span>
+        {domains.map(d => {
+          const active = isActive(d)
+          const excluded = excludedDomains.includes(d)
+          return (
+            <div
+              key={d}
+              className={`flex items-center gap-1 rounded-md transition-colors ${
+                excluded ? 'bg-red-950/30 border border-red-800/30' : ''
+              }`}
+            >
+              <button
+                onClick={() => toggle(d)}
+                className={`flex-1 flex items-center justify-between px-3 py-2 text-sm transition-colors ${
+                  active ? 'text-amber-400' : excluded ? 'text-red-400/60' : 'text-gray-400 hover:text-gray-200'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <span className={`w-3 h-3 rounded-sm border flex items-center justify-center shrink-0 ${active ? 'bg-amber-400 border-amber-400' : 'border-gray-600'}`}>
+                    {active && <span className="text-black text-[8px] leading-none">✓</span>}
+                  </span>
+                  <span className={`capitalize ${excluded ? 'line-through' : ''}`}>{d}</span>
+                </div>
+                {domainCounts?.[d] !== undefined && (
+                  <span className="text-xs text-gray-500">{domainCounts[d]}</span>
+                )}
+              </button>
+              {onExclude && (
+                <button
+                  onClick={() => onExclude(d)}
+                  title={excluded ? 'Remove exclusion' : 'Exclude this domain'}
+                  className={`text-xs w-5 h-5 flex items-center justify-center rounded mr-1 transition-colors ${excluded ? 'text-red-400' : 'text-gray-700 hover:text-red-400'}`}
+                >✕</button>
+              )}
             </div>
-            {domainCounts?.[d] !== undefined && (
-              <span className="text-xs text-gray-500">{domainCounts[d]}</span>
-            )}
-          </button>
-        ))}
+          )
+        })}
       </div>
     )
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex gap-2">
       {(['', ...domains] as string[]).map(d => (
         <button
           key={d || 'all'}

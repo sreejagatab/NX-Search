@@ -21,8 +21,8 @@ export function useSuggest(query: string) {
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   }, [query])
 
-  const prefetchSuggestion = useCallback((suggestion: string, mode: SearchMode, domains: string[], threshold: number) => {
-    const key = cacheKey(suggestion, domains, mode, threshold)
+  const prefetchSuggestion = useCallback((suggestion: string, mode: SearchMode, domains: string[]) => {
+    const key = cacheKey(suggestion, domains, mode)
     if (searchCache.has(key)) return
     const existing = prefetchTimers.current.get(suggestion)
     if (existing) clearTimeout(existing)
@@ -30,9 +30,9 @@ export function useSuggest(query: string) {
       if (searchCache.has(key)) return
       try {
         let resp
-        if (mode === 'hybrid') resp = await searchHybrid(suggestion, 50, threshold, domains[0] ?? '')
-        else if (mode === 'semantic') resp = await searchSemantic(suggestion, 50, threshold)
-        else resp = await searchPatterns(suggestion, domains[0] ?? '', 50)
+        if (mode === 'hybrid') resp = await searchHybrid(suggestion, 20, 0.7, domains[0] ?? '')
+        else if (mode === 'semantic') resp = await searchSemantic(suggestion, 20, 0.7, domains[0] ?? '')
+        else resp = await searchPatterns(suggestion, domains[0] ?? '', 20)
         cacheSet(key, { results: resp.results, total: resp.total, queryTimeMs: resp.query_time_ms })
       } catch { /* ignore prefetch failures */ }
       prefetchTimers.current.delete(suggestion)

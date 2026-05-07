@@ -1,0 +1,17 @@
+{
+  "name": "NeuronX Search",
+  "short_name": "NX Search",
+  "description": "Semantic search over 257K learned patterns",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0e11",
+  "theme_color": "#f59e0b",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

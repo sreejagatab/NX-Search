@@ -1,20 +1,23 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { useSuggest } from '../hooks/useSuggest'
-import type { SearchMode } from '../types'
+import { OPERATOR_EXAMPLES } from '../lib/parseOperators'
+import type { SearchMode, FocusMode } from '../types'
 
 interface Props {
   query: string
   mode: SearchMode
   domains?: string[]
-  threshold?: number
+  focusMode?: FocusMode
   onQueryChange: (q: string) => void
-  onModeChange: (m: SearchMode) => void
+  onModeChange?: (m: SearchMode) => void
+  onDomainsChange?: (ds: string[]) => void
+  onFocusModeChange?: (m: FocusMode) => void
   onSubmit?: () => void
   autoFocus?: boolean
   size?: 'lg' | 'sm'
 }
 
-export function SearchBar({ query, mode, domains = [], threshold = 0.7, onQueryChange, onModeChange, onSubmit, autoFocus, size = 'sm' }: Props) {
+export function SearchBar({ query, mode, domains = [], focusMode = 'research', onQueryChange, onFocusModeChange, onSubmit, autoFocus, size = 'sm' }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   const listboxId = useId()
   const [localQuery, setLocalQuery] = useState(query)
@@ -91,6 +94,7 @@ export function SearchBar({ query, mode, domains = [], threshold = 0.7, onQueryC
     clear()
   }
 
+  const [showHints, setShowHints] = useState(false)
   const isLg = size === 'lg'
   const activeDescendant = selectedIndex >= 0 ? `${listboxId}-opt-${selectedIndex}` : undefined
 
@@ -126,8 +130,30 @@ export function SearchBar({ query, mode, domains = [], threshold = 0.7, onQueryC
             ✕
           </button>
         )}
-        <ModeToggle mode={mode} onModeChange={onModeChange} />
+        {onFocusModeChange && (
+          <FocusPills mode={focusMode} onChange={onFocusModeChange} />
+        )}
+        <button
+          type="button"
+          onMouseDown={e => { e.preventDefault(); setShowHints(h => !h) }}
+          onBlur={() => setTimeout(() => setShowHints(false), 150)}
+          className="mr-2 text-gray-600 hover:text-amber-400 text-xs w-5 h-5 flex items-center justify-center rounded-full border border-border bg-card shrink-0 transition-colors"
+          aria-label="Search operator hints"
+          title="Search operators"
+        >?</button>
       </div>
+
+      {showHints && (
+        <div className="absolute top-full right-0 mt-1.5 w-64 bg-card border border-border rounded-xl shadow-xl z-50 p-3">
+          <p className="text-xs text-gray-500 mb-2 font-medium uppercase tracking-wider">Search operators</p>
+          {OPERATOR_EXAMPLES.map(({ op, desc }) => (
+            <div key={op} className="flex items-center justify-between py-1">
+              <code className="text-xs text-amber-400 bg-bg px-1.5 py-0.5 rounded">{op}</code>
+              <span className="text-xs text-gray-500 ml-2">{desc}</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {showSuggestions && visibleSuggestions.length > 0 && (
         <ul
@@ -141,7 +167,7 @@ export function SearchBar({ query, mode, domains = [], threshold = 0.7, onQueryC
             <li key={i} id={`${listboxId}-opt-${i}`} role="option" aria-selected={i === selectedIndex}>
               <button
                 onMouseDown={() => selectSuggestion(s)}
-                onMouseEnter={() => { setSelectedIndex(i); prefetchSuggestion(s, mode, domains, threshold) }}
+                onMouseEnter={() => { setSelectedIndex(i); prefetchSuggestion(s, mode, domains) }}
                 onMouseLeave={() => cancelPrefetch(s)}
                 className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${
                   i === selectedIndex ? 'bg-subtle text-gray-100' : 'text-gray-300 hover:bg-subtle'
@@ -157,40 +183,32 @@ export function SearchBar({ query, mode, domains = [], threshold = 0.7, onQueryC
   )
 }
 
-function ModeToggle({ mode, onModeChange }: { mode: SearchMode; onModeChange: (m: SearchMode) => void }) {
-  const modes: { value: SearchMode; label: string; title: string }[] = [
-    { value: 'semantic', label: 'Semantic', title: 'FAISS vector search' },
-    { value: 'pattern', label: 'Pattern', title: 'Keyword pattern search' },
-    { value: 'hybrid', label: 'Hybrid', title: 'Merged semantic + pattern (RRF)' },
-  ]
-  const activeIdx = modes.findIndex(m => m.value === mode)
-  const pct = (activeIdx / (modes.length - 1)) * 100
+const FOCUS_MODES: { mode: FocusMode; label: string; title: string }[] = [
+  { mode: 'research', label: 'Research', title: 'All sources — comprehensive AI answers' },
+  { mode: 'web', label: 'Web', title: 'Web results only — concise answers' },
+  { mode: 'code', label: 'Code', title: 'All sources — code-focused AI explanations' },
+  { mode: 'quick', label: 'Quick', title: 'Fast results — no AI generation' },
+]
 
+function FocusPills({ mode, onChange }: { mode: FocusMode; onChange: (m: FocusMode) => void }) {
   return (
-    <div className="flex items-center px-2 border-l border-border shrink-0">
-      <div className="relative flex items-center bg-bg rounded-lg p-0.5 gap-0">
-        {/* sliding pill indicator */}
-        <span
-          className="absolute h-[calc(100%-4px)] rounded-md bg-amber-400 transition-all duration-200 ease-out"
-          style={{
-            width: `${100 / modes.length}%`,
-            left: `calc(${pct}% * ${(modes.length - 1) / modes.length} + 2px)`,
-            top: '2px',
-          }}
-        />
-        {modes.map(m => (
-          <button
-            key={m.value}
-            onClick={() => onModeChange(m.value)}
-            title={m.title}
-            className={`relative z-10 text-xs px-2 py-1 rounded transition-colors ${
-              mode === m.value ? 'text-black font-medium' : 'text-gray-500 hover:text-gray-200'
-            }`}
-          >
-            {m.label}
-          </button>
-        ))}
-      </div>
+    <div className="flex items-center px-2 border-l border-border shrink-0 gap-0.5">
+      {FOCUS_MODES.map(f => (
+        <button
+          key={f.mode}
+          onClick={() => onChange(f.mode)}
+          title={f.title}
+          aria-label={f.title}
+          aria-pressed={mode === f.mode}
+          className={`text-[10px] px-2 py-1 min-h-[28px] rounded transition-colors ${
+            mode === f.mode
+              ? 'bg-amber-400/20 text-amber-400 font-medium'
+              : 'text-gray-500 hover:text-gray-300'
+          }`}
+        >
+          {f.label}
+        </button>
+      ))}
     </div>
   )
 }

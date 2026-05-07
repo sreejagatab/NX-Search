@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { askBrain } from '../api/search'
+import type { AnswerStyle } from '../api/search'
 import type { SearchResult } from '../types'
 
 export function useAskBrain() {
@@ -8,7 +9,7 @@ export function useAskBrain() {
   const [error, setError] = useState<string | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  const ask = useCallback(async (query: string, results: SearchResult[]) => {
+  const ask = useCallback(async (query: string, results: SearchResult[], answerStyle: AnswerStyle = 'detailed') => {
     abortRef.current?.abort()
     abortRef.current = new AbortController()
     setAnswer('')
@@ -19,7 +20,7 @@ export function useAskBrain() {
     try {
       await askBrain(query, context, (token) => {
         setAnswer(prev => prev + token)
-      }, abortRef.current.signal)
+      }, abortRef.current.signal, answerStyle)
     } catch (e: unknown) {
       if ((e as Error).name !== 'AbortError') {
         setError((e as Error).message ?? 'Ask Brain failed')

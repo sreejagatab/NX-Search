@@ -1,8 +1,10 @@
-import { useRef } from 'react'
+import { useRef, useState, useMemo } from 'react'
 import type { SearchResult, SortField } from '../types'
 import { ResultCard } from './ResultCard'
 import { SkeletonList } from './Skeleton'
 import { useResultKeyboard } from '../hooks/useResultKeyboard'
+import { clusterResults } from '../lib/clusterResults'
+import { getDensity, setDensity, DENSITY_CLASSES, type Density } from '../lib/density'
 
 interface Props {
   results: SearchResult[]
@@ -23,6 +25,11 @@ interface Props {
   onPageSizeChange: (size: number) => void
   onRetry?: () => void
   highlightId?: string
+  onMoreLike?: (content: string) => void
+  onCardClick?: (result: SearchResult) => void
+  onExplain?: (result: SearchResult) => void
+  compact?: boolean
+  detailOpen?: boolean
 }
 
 const SORT_OPTIONS: { value: SortField; label: string }[] = [
@@ -31,28 +38,56 @@ const SORT_OPTIONS: { value: SortField; label: string }[] = [
   { value: 'domain', label: 'Domain' },
 ]
 
-const PAGE_SIZE_OPTIONS = [20, 50, 100]
+const PAGE_SIZE_OPTIONS = [5, 10, 20]
 
 export function ResultList({
   results, query, loading, isStale, error, total, filteredCount, page, totalPages,
   sort, pageSize, localFilter, onLocalFilterChange,
-  onPageChange, onSortChange, onPageSizeChange, onRetry, highlightId,
+  onPageChange, onSortChange, onPageSizeChange, onRetry, highlightId, onMoreLike, onCardClick, onExplain, compact, detailOpen,
 }: Props) {
   const { setCardRef } = useResultKeyboard(results.length)
   const filterInputRef = useRef<HTMLInputElement>(null)
+  const [clustered, setClustered] = useState(false)
+  const [collapsedClusters, setCollapsedClusters] = useState<Set<string>>(new Set())
+  const [density, setDensityState] = useState<Density>(getDensity)
+
+  const handleDensityChange = (d: Density) => {
+    setDensityState(d)
+    setDensity(d)
+  }
+
+  const densityCfg = DENSITY_CLASSES[density]
+
+  const clusters = useMemo(() => clustered ? clusterResults(results) : [], [clustered, results])
+
+  const toggleCluster = (id: string) => {
+    setCollapsedClusters(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
+  }
 
   if (loading && !isStale) return <SkeletonList count={5} />
 
   if (error) {
     return (
-      <div className="bg-red-950/30 border border-red-800/50 rounded-lg p-4 text-red-400 text-sm">
-        <strong className="block mb-1">Search error</strong>
-        <p className="mb-3">{error}</p>
-        {onRetry && (
-          <button onClick={onRetry} className="text-xs px-3 py-1.5 rounded border border-red-700 hover:bg-red-900/30 transition-colors">
-            Retry
-          </button>
-        )}
+      <div className="bg-red-950/30 border border-red-800/50 rounded-xl p-5 text-sm">
+        <div className="flex items-start gap-3">
+          <span className="text-red-400 text-lg shrink-0">⚠</span>
+          <div className="flex-1 min-w-0">
+            <strong className="block text-red-300 mb-1">Search failed</strong>
+            <p className="text-red-400/80 mb-4 leading-relaxed">{error}</p>
+            {onRetry && (
+              <button
+                onClick={onRetry}
+                className="text-xs px-4 py-2 rounded-lg bg-red-900/40 text-red-300 border border-red-700/50 hover:bg-red-900/60 hover:text-red-200 transition-colors"
+              >
+                Try again
+              </button>
+            )}
+          </div>
+        </div>
       </div>
     )
   }
@@ -108,24 +143,91 @@ export function ResultList({
             </button>
           ))}
         </div>
+
+        <button
+          onClick={() => setClustered(v => !v)}
+          title="Group results by similarity clusters"
+          className={`text-xs px-2.5 py-1 rounded-md border transition-colors ${clustered ? 'bg-amber-400/10 text-amber-400 border-amber-400/20' : 'text-gray-500 hover:text-gray-300 border-transparent'}`}
+        >
+          Cluster
+        </button>
+
+        <div className="flex items-center gap-0.5 border border-border rounded-md overflow-hidden">
+          {(['compact', 'comfortable', 'spacious'] as Density[]).map(d => (
+            <button
+              key={d}
+              onClick={() => handleDensityChange(d)}
+              title={d}
+              className={`text-xs px-2 py-1 transition-colors ${density === d ? 'bg-amber-400/10 text-amber-400' : 'text-gray-600 hover:text-gray-300'}`}
+            >
+              {d === 'compact' ? '▬' : d === 'comfortable' ? '▭' : '□'}
+            </button>
+          ))}
+        </div>
       </div>
 
       {localFilter && filteredCount === 0 && (
         <p className="text-sm text-gray-500 py-8 text-center">No results match "{localFilter}"</p>
       )}
 
-      <div className="space-y-3" aria-busy={loading}>
-        {results.map((r, i) => (
-          <ResultCard
-            key={r.id}
-            result={r}
-            query={query}
-            index={i}
-            onRegisterRef={setCardRef}
-            highlightId={highlightId}
-          />
-        ))}
-      </div>
+      {clustered ? (
+        <div className="space-y-4" aria-busy={loading}>
+          {clusters.map(cluster => {
+            const collapsed = collapsedClusters.has(cluster.id)
+            return (
+              <div key={cluster.id} className="border border-border rounded-xl overflow-hidden">
+                <button
+                  onClick={() => toggleCluster(cluster.id)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 bg-subtle hover:bg-card transition-colors text-left"
+                >
+                  <span className="text-xs text-gray-400 font-medium">{cluster.label}</span>
+                  <span className="text-gray-600 text-xs">{collapsed ? '▼' : '▲'}</span>
+                </button>
+                {!collapsed && (
+                  <div className={compact ? 'grid grid-cols-1 lg:grid-cols-2 gap-2 p-2' : 'divide-y divide-border'}>
+                    {cluster.results.map((r, i) => (
+                      <div key={r.id} className={compact ? '' : 'px-2 py-2'}>
+                        <ResultCard
+                          result={r}
+                          query={query}
+                          index={i}
+                          onRegisterRef={setCardRef}
+                          highlightId={highlightId}
+                          onMoreLike={onMoreLike}
+                          onCardClick={onCardClick}
+                          onExplain={onExplain}
+                          cardPadding={compact ? 'px-3 py-3' : densityCfg.card}
+                          snippetLength={compact ? 120 : densityCfg.snippet}
+                          disablePopover={detailOpen}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      ) : (
+        <div className={compact ? 'grid grid-cols-1 lg:grid-cols-2 gap-2' : 'space-y-3'} aria-busy={loading}>
+          {results.map((r, i) => (
+            <ResultCard
+              key={r.id}
+              result={r}
+              query={query}
+              index={i}
+              onRegisterRef={setCardRef}
+              highlightId={highlightId}
+              onMoreLike={onMoreLike}
+              onCardClick={onCardClick}
+              onExplain={onExplain}
+              cardPadding={compact ? 'px-3 py-3' : densityCfg.card}
+              snippetLength={compact ? 120 : densityCfg.snippet}
+              disablePopover={detailOpen}
+            />
+          ))}
+        </div>
+      )}
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2 mt-6">
@@ -145,24 +247,25 @@ export function ResultList({
 }
 
 function EmptyState({ query }: { query: string }) {
+  const tips = [
+    'Use fewer or simpler keywords',
+    'Remove domain: or source: filters if active',
+    'Try "Research" or "Web" focus mode from the search bar',
+    'Use "≈ More" on a related result to find similar content',
+  ]
   return (
-    <div className="text-center py-16 text-gray-500">
-      <svg className="mx-auto mb-4 w-16 h-16 opacity-20" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="1.5">
-        <circle cx="32" cy="32" r="12" />
-        <circle cx="32" cy="32" r="24" strokeDasharray="4 3" />
-        <line x1="32" y1="8" x2="32" y2="4" /><line x1="32" y1="60" x2="32" y2="56" />
-        <line x1="8" y1="32" x2="4" y2="32" /><line x1="60" y1="32" x2="56" y2="32" />
-        <circle cx="20" cy="20" r="2" fill="currentColor" stroke="none" />
-        <circle cx="44" cy="20" r="2" fill="currentColor" stroke="none" />
-        <circle cx="44" cy="44" r="2" fill="currentColor" stroke="none" />
-        <circle cx="20" cy="44" r="2" fill="currentColor" stroke="none" />
-        <line x1="32" y1="20" x2="20" y2="20" strokeDasharray="2 2" />
-        <line x1="32" y1="20" x2="44" y2="20" strokeDasharray="2 2" />
-        <line x1="32" y1="44" x2="20" y2="44" strokeDasharray="2 2" />
-        <line x1="32" y1="44" x2="44" y2="44" strokeDasharray="2 2" />
-      </svg>
-      <p className="text-lg mb-1">No results for <span className="text-gray-300">"{query}"</span></p>
-      <p className="text-sm">Try broader terms, lower the similarity threshold, or switch to Hybrid mode</p>
+    <div className="text-center py-16 px-4">
+      <div className="text-5xl mb-4 opacity-30">◎</div>
+      <p className="text-lg text-gray-300 mb-1">No results for <span className="text-amber-400/80">"{query}"</span></p>
+      <p className="text-sm text-gray-600 mb-6">The search ran but found nothing matching your query.</p>
+      <ul className="inline-flex flex-col gap-2 text-left text-sm text-gray-500">
+        {tips.map(tip => (
+          <li key={tip} className="flex items-start gap-2">
+            <span className="text-amber-400/40 shrink-0 mt-0.5">›</span>
+            {tip}
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }
