@@ -91,7 +91,9 @@ export function AskBrain({ query, results, visible, onClose, onFollowUp, explain
   }
 
   const citedIndices = answer ? parseCitedIndices(answer) : new Set<number>()
-  const citedResults = results.slice(0, 5).filter((_, i) => citedIndices.has(i + 1))
+  const citedResults = results.slice(0, 5)
+    .map((r, i) => ({ r, citNum: i + 1 }))
+    .filter(({ citNum }) => citedIndices.has(citNum))
   const followUps = !loading && answer.length > 100 ? extractFollowUps(answer, query) : []
 
   const verifications = useMemo(
@@ -141,15 +143,18 @@ export function AskBrain({ query, results, visible, onClose, onFollowUp, explain
           )}
           {!loading && answer && audio.supported && (
             <button
-              onClick={() => audio.state === 'idle' ? audio.speak(answer) : audio.stop()}
-              title={audio.state === 'idle' ? 'Listen to answer' : 'Stop audio'}
+              onClick={() => {
+                if (audio.state === 'idle') audio.speak(answer)
+                else if (audio.state === 'paused') audio.resume()
+                else audio.stop()
+              }}
+              title={audio.state === 'idle' ? 'Listen to answer' : audio.state === 'paused' ? 'Resume' : 'Stop audio'}
               className={`text-sm transition-colors ${audio.state === 'speaking' ? 'text-amber-400 animate-pulse' : 'text-gray-500 hover:text-amber-400'}`}
             >
               {audio.state === 'speaking' ? '⏹' : audio.state === 'paused' ? '▶' : '🔊'}
             </button>
           )}
-          {audio.state === 'paused' && <button onClick={audio.resume} className="text-xs text-gray-500 hover:text-amber-400 transition-colors">▶</button>}
-          {audio.state === 'speaking' && <button onClick={audio.pause} className="text-xs text-gray-500 hover:text-amber-400 transition-colors">⏸</button>}
+          {audio.state === 'speaking' && <button onClick={audio.pause} className="text-xs text-gray-500 hover:text-amber-400 transition-colors" title="Pause">⏸</button>}
           {!loading && answer && (
             <button onClick={triggerAsk} className="text-xs text-gray-500 hover:text-gray-200 transition-colors" title="Regenerate answer">↺</button>
           )}
@@ -206,8 +211,7 @@ export function AskBrain({ query, results, visible, onClose, onFollowUp, explain
               <div className="mt-3 pt-3 border-t border-border">
                 <p className="text-xs text-gray-600 mb-2">Sources cited</p>
                 <div className="space-y-1">
-                  {citedResults.map((r, i) => {
-                    const citNum = i + 1
+                  {citedResults.map(({ r, citNum }) => {
                     const v = verifications.find(cv => cv.index === citNum)
                     return (
                       <div key={r.id} className="text-xs flex gap-1.5 items-start">

@@ -43,18 +43,19 @@ export function AISummary({ summary, intent, enginesUsed = [], sources = {}, que
         <div className="flex items-center gap-2 shrink-0">
           {summary && audio.supported && (
             <button
-              onClick={() => audio.state === 'idle' ? audio.speak(summary) : audio.stop()}
-              title={audio.state === 'idle' ? 'Listen to summary' : 'Stop audio'}
+              onClick={() => {
+                if (audio.state === 'idle') audio.speak(summary)
+                else if (audio.state === 'paused') audio.resume()
+                else audio.stop()
+              }}
+              title={audio.state === 'idle' ? 'Listen to summary' : audio.state === 'paused' ? 'Resume' : 'Stop audio'}
               className={`text-sm transition-colors ${audio.state === 'speaking' ? 'text-amber-400 animate-pulse' : 'text-gray-600 hover:text-amber-400'}`}
             >
               {audio.state === 'speaking' ? '⏹' : audio.state === 'paused' ? '▶' : '🔊'}
             </button>
           )}
-          {audio.state === 'paused' && (
-            <button onClick={audio.resume} className="text-xs text-gray-600 hover:text-amber-400 transition-colors">▶</button>
-          )}
           {audio.state === 'speaking' && (
-            <button onClick={audio.pause} className="text-xs text-gray-600 hover:text-amber-400 transition-colors">⏸</button>
+            <button onClick={audio.pause} className="text-xs text-gray-600 hover:text-amber-400 transition-colors" title="Pause">⏸</button>
           )}
           {summary && (
             <button
