@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { searchPatterns, searchSemantic, searchHybrid } from '../api/search'
 import { parseOperators } from '../lib/parseOperators'
 import { getBoostedDomains, getBlockedDomains } from '../lib/domainPrefs'
-import type { SearchResult, SearchMode, SortField, FocusMode } from '../types'
+import type { SearchResult, SearchMode, SortField, FocusMode, SearchDepth } from '../types'
 
 export const DISPLAY_PAGE_SIZE = 10  // 2 pages of 10 from max-20 API results
 const FETCH_LIMIT = 20
@@ -73,18 +73,23 @@ export function useSearch() {
   const sort = (searchParams.get('sort') as SortField) ?? 'similarity'
   const page = parseInt(searchParams.get('page') ?? '1', 10)
   const focusMode = (searchParams.get('focus') as FocusMode) ?? 'research'
+  const depth = (searchParams.get('depth') as SearchDepth) ?? 'standard'
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  const runSearch = useCallback(async (q: string, doms: string[], m: SearchMode) => {
+  const runSearch = useCallback(async (q: string, doms: string[], m: SearchMode, d: SearchDepth = 'standard') => {
     if (!q.trim()) {
       setLoading(false); setResults([]); setStaleResults([]); setTotal(0); return
     }
+    // Depth overrides: quick forces pattern; deep forces hybrid + larger fetch
+    const effectiveMode: SearchMode = d === 'quick' ? 'pattern' : d === 'deep' ? 'hybrid' : m
+    const effectiveFetchLimit = d === 'deep' ? 30 : FETCH_LIMIT
+
     const ops = parseOperators(q)
     const effectiveQ = ops.cleanQuery || q
     const effectiveDoms = ops.domains.length > 0 ? [...new Set([...doms, ...ops.domains])] : doms
-    const key = cacheKey(effectiveQ, effectiveDoms, m)
+    const key = cacheKey(effectiveQ, effectiveDoms, effectiveMode)
     const cached = cacheGet(key)
     if (cached) {
       setLoading(false)
@@ -102,14 +107,14 @@ export function useSearch() {
     setError(null)
     try {
       let resp
-      if (m === 'hybrid') {
-        resp = await searchHybrid(effectiveQ, FETCH_LIMIT, 0.7, effectiveDoms[0] ?? '')
-      } else if (m === 'semantic') {
-        resp = await searchSemantic(effectiveQ, FETCH_LIMIT, 0.7, effectiveDoms[0] ?? '')
+      if (effectiveMode === 'hybrid') {
+        resp = await searchHybrid(effectiveQ, effectiveFetchLimit, 0.7, effectiveDoms[0] ?? '')
+      } else if (effectiveMode === 'semantic') {
+        resp = await searchSemantic(effectiveQ, effectiveFetchLimit, 0.7, effectiveDoms[0] ?? '')
       } else {
         // multi-domain: run one search per domain, merge+dedup
         if (effectiveDoms.length > 1) {
-          const responses = await Promise.all(effectiveDoms.map(d => searchPatterns(effectiveQ, d, FETCH_LIMIT)))
+          const responses = await Promise.all(effectiveDoms.map(dom => searchPatterns(effectiveQ, dom, effectiveFetchLimit)))
           const seen = new Set<string>()
           const merged: SearchResult[] = []
           for (const r of responses.flatMap(r => r.results)) {
@@ -121,7 +126,7 @@ export function useSearch() {
             query_time_ms: Math.max(...responses.map(r => r.query_time_ms)),
           }
         } else {
-          resp = await searchPatterns(effectiveQ, effectiveDoms[0] ?? '', FETCH_LIMIT)
+          resp = await searchPatterns(effectiveQ, effectiveDoms[0] ?? '', effectiveFetchLimit)
         }
       }
       const SOURCE_LABELS: Record<string, string> = { 'neuronx_memory.db': 'Internal', 'codebase': 'Codebase' }
@@ -163,10 +168,10 @@ export function useSearch() {
     // Set loading immediately so loadedQuery guard doesn't misfire during the debounce gap
     if (query.trim()) setLoading(true)
     else setLoading(false)
-    debounceRef.current = setTimeout(() => runSearch(query, domains, mode), 300)
+    debounceRef.current = setTimeout(() => runSearch(query, domains, mode, depth), 300)
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current) }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, rawDomains, mode, runSearch])
+  }, [query, rawDomains, mode, depth, runSearch])
 
   const setQuery = useCallback((q: string) => {
     setSearchParams(prev => { const n = new URLSearchParams(prev); if (q) n.set('q', q); else n.delete('q'); n.delete('page'); return n }, { replace: true })
@@ -198,7 +203,11 @@ export function useSearch() {
     setSearchParams(prev => { const n = new URLSearchParams(prev); n.set('page', String(p)); return n }, { replace: true })
   }, [setSearchParams])
 
-  const retrySearch = useCallback(() => runSearch(query, domains, mode), [query, domains, mode, runSearch])
+  const retrySearch = useCallback(() => runSearch(query, domains, mode, depth), [query, domains, mode, depth, runSearch])
+
+  const setDepth = useCallback((d: SearchDepth) => {
+    setSearchParams(prev => { const n = new URLSearchParams(prev); if (d === 'standard') n.delete('depth'); else n.set('depth', d); n.delete('page'); return n }, { replace: true })
+  }, [setSearchParams])
 
   const setFocusMode = useCallback((f: FocusMode) => {
     setSearchParams(prev => {
@@ -292,7 +301,7 @@ export function useSearch() {
   }, {}), [displayBase])
 
   return {
-    query, domains, mode, sort, page, focusMode,
+    query, domains, mode, sort, page, focusMode, depth,
     results: pagedResults,
     allResults: displayBase,
     filteredCount: filteredResults.length,
@@ -300,7 +309,7 @@ export function useSearch() {
     total, queryTimeMs, loading, error, totalPages,
     pageSize, localFilter, minConfidence, activeSources,
     allSources, domainCounts, sourceCounts,
-    setQuery, setDomains, setMode, setSort, setPage, setFocusMode,
+    setQuery, setDomains, setMode, setSort, setPage, setFocusMode, setDepth,
     setPageSize: setPageSizeState,
     setLocalFilter, setMinConfidence, setActiveSources,
     excludedDomains, setExcludedDomains,

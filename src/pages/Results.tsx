@@ -121,6 +121,22 @@ export function Results() {
             </button>
           </div>
 
+          {/* Search depth dial */}
+          <div className="hidden sm:flex items-center shrink-0 border border-border rounded-lg overflow-hidden divide-x divide-border">
+            {(['quick', 'standard', 'deep'] as const).map(d => (
+              <button
+                key={d}
+                onClick={() => search.setDepth(d)}
+                title={d === 'quick' ? 'Quick — pattern search, no AI' : d === 'standard' ? 'Standard — semantic + AI summary' : 'Deep — hybrid, more results, full Brain answer'}
+                className={`px-2 py-1.5 text-[10px] font-medium transition-colors capitalize ${
+                  search.depth === d ? 'text-amber-400 bg-amber-400/10' : 'text-gray-500 hover:text-gray-200 hover:bg-subtle'
+                }`}
+              >
+                {d}
+              </button>
+            ))}
+          </div>
+
           <div className="flex items-center gap-1.5 shrink-0">
             <button
               onClick={p.toggleAiMode}

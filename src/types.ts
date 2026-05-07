@@ -44,3 +44,5 @@ export type SortField = 'similarity' | 'confidence' | 'domain'
 
 export type FocusMode = 'research' | 'web' | 'quick'
 
+export type SearchDepth = 'quick' | 'standard' | 'deep'
+
