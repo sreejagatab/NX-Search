@@ -32,7 +32,6 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_NEURONX_API_URL: https://neuronx.jagatab.uk
           VITE_NEURONX_API_KEY: ${{ secrets.VITE_NEURONX_API_KEY }}
 
       - name: Upload build artifact

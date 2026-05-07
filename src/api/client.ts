@@ -1,4 +1,6 @@
-const BASE_URL = import.meta.env.DEV ? '' : (import.meta.env.VITE_NEURONX_API_URL ?? 'https://neuronx.jagatab.uk')
+// In production, use relative URLs so the nginx proxy at nx-search.jagatab.uk handles /api/ and /v1/
+// In dev, Vite's proxy config handles the same routes
+const BASE_URL = import.meta.env.VITE_NEURONX_API_URL ?? ''
 const API_KEY = import.meta.env.VITE_NEURONX_API_KEY ?? ''
 
 // In-flight deduplication: same URL → share the pending Promise
