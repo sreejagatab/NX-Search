@@ -978,3 +978,353 @@ What the tool currently is
    into?
 
 
+═══════════════════════════════════════════════════════════════════════════════════════
+SESSION CONTEXT UPDATE — 2026-05-07
+Full architectural overhaul + documentation + bug fixes
+═══════════════════════════════════════════════════════════════════════════════════════
+
+--- REPO STATE ---
+GitHub: https://github.com/sreejagatab/NX-Search
+Live:   https://nx-search.jagatab.uk
+Branch: main (all changes pushed)
+Latest commits:
+  ed3bc3e  refactor: 10-point architectural improvements
+  e81a271  docs: full-fledged README, ARCHITECTURE, CONTRIBUTING, SECURITY, LICENSE
+  b348466  fix: patch People Also Ask — abort signal, spinner cleanup, Search button
+  44e8a29  fix: 10-point audit — bugs, dead code, UX, and polish
+
+Test status: 58/58 passing, 0 TypeScript errors
+Build:       ~350KB JS / ~115KB gzipped
+
+--- PREVIOUS SESSION CARRY-OVER FIXES ---
+
+CI test fix (useSearch > debounces search by 300ms):
+  Was: expect(searchApi.searchSemantic).toHaveBeenCalledWith('python', 50, 0.7)
+  Now: expect(searchApi.searchSemantic).toHaveBeenCalledWith('python', 20, 0.7, '')
+  Root cause: FETCH_LIMIT changed from 50→20 and function signature gained domain arg.
+
+CORS fix (production + dev):
+  Root cause: VITE_NEURONX_API_URL=https://neuronx.jagatab.uk was baked into bundle,
+  causing direct browser→backend cross-origin requests.
+  Fix: client.ts → const BASE_URL = import.meta.env.VITE_NEURONX_API_URL ?? ''
+       Removed env var from .github/workflows/ci.yml, deploy.yml, and .env
+       All API calls now use relative URLs → nginx proxy (prod) + Vite proxy (dev) handle routing.
+
+Favicon fix:
+  Created public/favicon.svg — amber rounded square with "N" glyph.
+  Referenced in index.html as <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+GitHub push protection incident:
+  contextsearch.txt was accidentally committed containing a GitHub PAT.
+  Fixed with: git rm --cached contextsearch.txt + git commit --amend + force push.
+  File added to .gitignore.
+
+--- 10-POINT AUDIT FIXES (tasks #1–#10 in previous session numbering) ---
+
+#1 Removed "Code" focus mode:
+   FocusMode type: removed 'code', kept 'research' | 'web' | 'quick'
+   FOCUS_PROMPTS['code'] removed from search.ts
+   SearchBar FOCUS_MODES: removed code entry, renamed research label to 'All'
+   CommandPalette: removed focus-code action
+   SearchBar props: removed onModeChange, onDomainsChange (unused)
+
+#2 Cleaned up prop threading:
+   Results.tsx: removed onModeChange and onDomainsChange from SearchBar call
+   Home.tsx: removed onModeChange={setMode} from SearchBar call
+
+#3 Stale results opacity:
+   ResultList: outer div no longer goes opacity-50 / pointer-events-none on whole list
+   Only the cards container dims to opacity-40 when isStale, not the filter controls
+
+#4 Single highlight source:
+   Created src/lib/highlight.tsx — shared highlight() that wraps query terms in <mark>
+   ResultCard and DetailPane now import from lib instead of having local copies
+
+#5 Document title:
+   Results.tsx useEffect: sets document.title to "{query} ({total}) · NX Search" on results,
+   "Searching… · NX Search" during load, resets on unmount
+
+#6 Deduped export JSON:
+   Results.tsx exportJson: includes ai_answer and answer_style only when present
+
+#7 Unified confidence display:
+   ResultCard ExpandedModal: replaced dual Similarity/Confidence row with single "Relevance: X%"
+   DetailPane: same — single Relevance bar, removed redundant Confidence bar
+   Tests updated to match: check /Relevance/ not /Similarity|Confidence/
+
+#8 Clear all filters:
+   FilterChips: added onClearAll prop, renders "Clear all" button when chips.length > 1
+   Results.tsx: wired onClearAll to reset domains, mode, sort, minConfidence, activeSources
+
+#9 Shared highlight:
+   src/lib/highlight.tsx:
+     export function highlight(text, query): React.ReactNode
+     Splits on word boundaries, wraps matches in <mark className="bg-amber-400/20 text-amber-300...">
+
+#10 Removed dead SearchState interface from types.ts
+
+--- PEOPLE ALSO ASK (PAA) — 3 BUGS FIXED ---
+
+Bug 1 — Missing abort signal in toggle():
+  Before: await generateMiniAnswer(question, results, onToken)
+  After:  await generateMiniAnswer(question, results, onToken, abortRef.current?.signal)
+  Impact: Stale mini-answer streams now cancelled when user navigates away or resets.
+
+Bug 2 — generate() spinner stuck on error:
+  Before: try { questions = await ... } catch { /* dead */ }  setGenerating(false)
+  After:  try { ... } catch { /* abort/network */ } finally { setGenerating(false) }
+  Impact: Spinner clears even on abort or network error.
+
+Bug 3 — No "Search this" on PAA items:
+  Before: PAA items only had expand/collapse chevron
+  After:  Each PAA item has a "Search →" button (px-2.5, border-l border-border) that
+          calls onFollowUp?.(item.question) → triggers full search for that question
+  File:   src/components/AIModeCard.tsx — button added inside the accordion header row
+
+--- DOCUMENTATION CREATED ---
+
+README.md — Full rewrite:
+  - Feature table (search, AI, PAA, filters, nav, UX, collections, analytics, PWA, DX)
+  - 5 Mermaid diagrams rendered natively on GitHub:
+      1. System architecture (browser → nginx → NeuronX backend)
+      2. Search flow sequence diagram (user → SearchBar → useSearch → API → ResultList)
+      3. AI answer pipeline sequence (Results → useAIAnswer → SSE → AIModeCard)
+      4. People Also Ask flowchart (trigger → generate → toggle → mini-answer → Search →)
+      5. Component hierarchy graph
+  - URL state & deep links table (?q, ?domain, ?mode, ?focus, ?result)
+  - Keyboard shortcuts table
+  - Quick start, env vars, scripts, Docker, tech stack sections
+
+ARCHITECTURE.md — New file:
+  - Full directory tree with file-by-file descriptions
+  - Core data flow diagram (Mermaid)
+  - API client layer: apiFetch + llmStream explained
+  - Hook dependency map (Mermaid)
+  - Search state machine (Mermaid stateDiagram-v2)
+  - Proxy configuration (dev vs prod)
+  - AI answer thread model
+  - PWA architecture flowchart
+
+CONTRIBUTING.md — New file:
+  - Branch workflow (feat/* → main, PR required)
+  - Coding standards (no comments, no abstractions, TypeScript strict)
+  - Testing conventions (src/test/ mirrors src/)
+  - CI pipeline diagram (Mermaid)
+  - Feature checklist (TS, a11y, mobile, golden path)
+
+SECURITY.md — New file (GitHub shows as "Security policy" tab):
+  - Private vulnerability reporting: sbdeliverservice@gmail.com
+  - No credentials in browser bundle
+  - Proxy architecture eliminates CORS and hides API key from URLs
+  - No dangerouslySetInnerHTML, no innerHTML
+  - SSH deploy key scope
+
+DEPLOY.md — Fully expanded:
+  - Deployment flow diagram (Mermaid)
+  - One-time server setup commands
+  - GitHub secrets table with descriptions
+  - Deploy SSH key generation commands
+  - DNS A record instructions
+  - nginx config reference (key sections with SSE buffering config)
+  - Rollback procedure
+  - Docker two-stage build details
+
+LICENSE — New file:
+  Proprietary / All Rights Reserved
+  Viewing the repo does not grant any license.
+  Unauthorized copy, use, modify, distribute explicitly prohibited.
+  Contact: sbdeliverservice@gmail.com
+
+--- 10 ARCHITECTURAL IMPROVEMENTS (tasks #11–#20) ---
+
+#11 — Extract useResultsPage hook:
+  Problem: Results.tsx was 496 lines owning all logic
+  Fix: Created src/hooks/useResultsPage.ts
+       All state, effects, handlers, keyboard shortcuts extracted
+       Results.tsx reduced to ~290 lines of pure JSX
+       useResultsPage returns: search, domains, stats, theme, aiMode, answerStyle,
+         askVisible, filtersOpen, sidebarOpen, detailResult, explainResult, paletteOpen,
+         analyticsOpen, collectionsOpen, loadedQuery, highlightId, aiAnswer,
+         + all setters and handlers
+
+#12 — Search cache: TTL + full metadata:
+  Problem: Cache stored only {results, total, queryTimeMs} — lost aiSummary, intent,
+           sources etc. on cache hit. No TTL so stale results served indefinitely.
+  Fix: CacheEntry interface expanded to include:
+         aiSummary, intent, intentConfidence, enginesUsed, resultSources, relatedSearches, expiresAt
+       CACHE_TTL_MS = 5 * 60 * 1000 (5 minutes)
+       cacheGet() checks Date.now() > entry.expiresAt and deletes + returns undefined if expired
+       cacheSet() stores Date.now() + CACHE_TTL_MS as expiresAt
+       Cache restore in runSearch now restores all metadata fields
+       useSuggest prefetch also updated to store full metadata
+
+#13 — Search modes now genuinely different:
+  Problem: searchSemantic, searchPatterns, searchHybrid all called v2Search identically
+  Fix: v2Search now accepts SearchOptions { perPage, filters, searchType }
+       searchSemantic: sends search_type:'semantic', perPage: limit (default 20)
+       searchPatterns:  sends search_type:'pattern', perPage: limit (default 20)
+       searchHybrid:    sends search_type:'hybrid',  perPage: min(limit+10, 30) — fetches more for broader coverage
+       Server receives search_type field and can act on it; client gets 30 results for hybrid re-ranking
+
+#14 — fetchDomains/fetchStats honest + live domain merge:
+  Problem: fetchDomains() returned hardcoded ['web','code'], fetchStats() returned static numbers.
+  Fix: KNOWN_DOMAINS constant exported from search.ts (16 domains: web, code, python, javascript,
+       typescript, rust, go, java, sql, bash, ruby, php, csharp, cpp, kotlin, swift)
+       fetchDomains() returns KNOWN_DOMAINS (still no live endpoint, but honest + complete)
+       fetchStats() comment updated to say "Documented estimates — no live stats endpoint"
+       useResultsPage: new useEffect merges live result domains into sidebar list:
+         setDomains(prev => [...new Set([...KNOWN_DOMAINS, ...liveDomains, ...prev])])
+       Sidebar now shows all domains that appear in actual results, not just a 2-item hardcoded list
+
+#15 — ErrorBoundary around all AI surfaces:
+  Problem: AIModeCard and AISummary had no error boundaries; a crash in CitationText or
+           a malformed SSE chunk would unmount the entire Results page.
+  Fix: ErrorBoundary component enhanced with optional label prop for specific error messages
+       Results.tsx wraps:
+         <ErrorBoundary label="AI answer"><AIModeCard /></ErrorBoundary>
+         <ErrorBoundary label="AI summary"><AISummary /></ErrorBoundary>
+         <ErrorBoundary label="Results"><ResultList /></ErrorBoundary>
+       componentDidCatch logs [ErrorBoundary:AI answer] etc. for debugging
+       Fallback now shows "Retry" button (was "Reset") and label-specific message
+
+#16 — AI thread length cap:
+  Problem: useAIAnswer appended 2 messages per exchange with no cap.
+           After 8-10 exchanges the thread exceeds LLM context window.
+  Fix: MAX_THREAD_PAIRS = 6 (constant in useAIAnswer.ts)
+       After appending new exchange: if appended.length > MAX_THREAD_PAIRS * 2,
+         slice from tail: appended.slice(appended.length - maxMessages)
+       System message is not in thread array — only user/assistant pairs are tracked.
+       Same trim logic applied in appendExchange (for AskBrain contributions).
+
+#17 — Unified AI context (useAIAnswer ↔ useAskBrain):
+  Problem: useAIAnswer (AIModeCard auto-answer) and useAskBrain (Ask panel) had separate
+           state. AskBrain received aiAnswer.thread as display-only — never wrote back.
+           LLM in Ask Brain had no memory of the AI Mode auto-answer.
+  Fix: useAIAnswer.appendExchange(userMessage, assistantMessage) added:
+         Appends to shared thread with same MAX_THREAD_PAIRS cap
+         Saves to sessionStorage
+       useAskBrain.ask() now accepts optional onExchange callback param:
+         After full answer collected: if (fullAnswer) onExchange?.(query, fullAnswer)
+       AskBrain component: onExchange prop added to Props interface
+         triggerAsk and explain-mode ask both pass onExchange down
+       Results.tsx: both AskBrain instances (desktop + mobile) pass onExchange={p.aiAnswer.appendExchange}
+       Effect: Ask Brain exchanges are now visible to the LLM in future AI Mode answers.
+
+#18 — LLM stream deduplication:
+  Problem: llmStream had no in-flight tracking. Rapidly toggling AI mode or navigating
+           could fire concurrent SSE streams — tokens from two generations interleave.
+  Fix: Module-level activeStreams = new Map<string, AbortController>() in client.ts
+       On each llmStream call: existing = activeStreams.get(path); if (existing) existing.abort('superseded')
+       activeStreams.set(path, ctrl) after creating internal controller
+       Cleanup in finally block and catch block: activeStreams.delete(path)
+       Effect: Only one LLM stream per endpoint path can be active at a time.
+
+#19 — Remove dead apiStream:
+  Problem: client.ts exported apiStream (simpler SSE function without idle timeout)
+           that was never imported anywhere — confusing alongside llmStream.
+  Fix: Deleted apiStream function entirely. Confirmed with grep: 0 imports anywhere.
+
+#20 — Fetch-more on strict filters:
+  Problem: Client-side filters (minConfidence, localFilter, excludedDomains) narrow a
+           hard-capped 20-result pool. Strict filters → 0-3 visible results even if
+           backend has many more matches.
+  Fix: useEffect in useSearch fires when filteredResults.length < 5 AND results.length >= FETCH_LIMIT
+       AND hasFilters (minConfidence > 0 OR localFilter OR activeSources OR excludedDomains):
+         Fires secondary fetch (same query/mode), receives novel results not in current pool
+         Merges with setResults(prev => [...prev, ...novel]) using seen Set for dedup
+         fetchMoreRef.current prevents concurrent fetch-more calls
+       Effect: Users with strict filters auto-receive a larger result pool to filter from.
+
+--- CURRENT FILE INVENTORY ---
+
+src/
+  api/
+    client.ts         apiFetch (in-flight dedup) + llmStream (idle timeout, stream dedup, abort)
+    search.ts         v2Search(query, SearchOptions) + mapResults + KNOWN_DOMAINS + all LLM fns
+
+  components/
+    AIModeCard.tsx    AI answer card: streaming, PAA accordion (with Search → button), follow-up input
+    AISummary.tsx     Collapsible non-streaming summary (AI Mode off)
+    AskBrain.tsx      Side panel: markdown answer, citations, follow-up chips, thread view, onExchange
+    AnalyticsPanel.tsx Domain hit chart, query time sparkline
+    CitationText.tsx  Bold/**code**/[N] citation inline renderer
+    CollectionsPanel.tsx Saved AI answers browser
+    CommandPalette.tsx ⌘K palette: mode/sort/export/theme/navigate
+    DetailPane.tsx    Right slide-in detail pane (desktop)
+    DomainFilter.tsx  Domain pills (sidebar) + DomainBadge
+    ErrorBoundary.tsx Class component with label prop, retry button
+    FilterChips.tsx   Active filter chips + Clear all
+    OfflineBanner.tsx Service worker offline indicator
+    ProgressBar.tsx   Slow-query progress bar with elapsed timer
+    ResultCard.tsx    Card + hover popover + ExpandedModal (with Relevance, Share, Copy)
+    ResultList.tsx    Paginated list with sort, cluster, density, local filter
+    SearchBar.tsx     Query input + suggestions + focus pills (All/Web/Quick)
+    SidebarFilters.tsx Domain checkboxes, exclude, confidence slider, source filters
+    Skeleton.tsx      Loading skeleton cards
+    StatsChip.tsx     257K patterns · 210K vectors · Xms
+    ThreadView.tsx    Conversation thread display
+
+  hooks/
+    useAIAnswer.ts    generate + abort + reset + clearThread + appendExchange; MAX_THREAD_PAIRS=6; sessionStorage thread
+    useAskBrain.ts    ask(query, results, style, onExchange?) + abort + reset; calls onExchange after completion
+    usePeopleAlsoAsk.ts generate (try/finally) + toggle (with abort signal) + reset; PAA state machine
+    usePrism.ts       Lazy PrismJS syntax highlighter
+    useResultKeyboard.ts ↑↓/o/c/e card keyboard navigation
+    useResultsPage.ts ALL Results.tsx logic extracted: state, effects, handlers, exports ~40 values
+    useSearch.ts      Core search: debounce, URL sync, LRU cache (5-min TTL, full metadata), fetch-more, filters
+    useSuggest.ts     Suggestions debounce + prefetch into searchCache
+
+  lib/
+    clusterResults.ts Groups results by similarity gap
+    collections.ts    localStorage CRUD for saved AI answers
+    density.ts        Result density scoring helper
+    highlight.tsx     Shared highlight(text, query) → <mark> wrapped React nodes
+    parseOperators.ts domain:X, -domain:X, "phrase", confidence:>N, confidence:<N
+    recentSearches.ts localStorage ring buffer (last 10 rich search objects)
+    registerSW.ts     Service worker registration
+    theme.ts          System/dark/light theme cycling + CSS var application
+
+  pages/
+    Home.tsx          Landing: centered SearchBar, domain pills, recent/saved searches
+    Results.tsx       ~290 lines pure JSX — all logic in useResultsPage
+
+  types.ts            SearchResult, SearchResponse, DomainsResponse, StatsResponse,
+                      SuggestResponse, SearchMode, SortField, FocusMode
+
+  test/               9 test files, 58 tests total
+
+--- API CONSTRAINTS (unchanged, still accurate) ---
+
+Endpoint:   POST /api/search/v2/search
+Body:       { query, filters: {engine?:'web'}, per_page:20, page:1, search_type?:'semantic'|'pattern'|'hybrid' }
+Suggest:    GET  /api/search/v2/suggest?q=... (returns [] when backend is slow)
+LLM:        POST /v1/chat/completions (OpenAI SSE format, model:'neuronx', stream:true)
+
+Engine filter reality:
+  engine:'web'  → works (~26s)
+  no filter     → works, most reliable (~20s), web + code mixed
+  engine:'code' → 502 Bad Gateway
+  All others    → timeout
+
+Score normalization: raw 0.002–0.009 → score/maxScore so top result = 1.0
+API hard cap: 20 results regardless of per_page value
+
+Vite proxy (dev):   /api/* and /v1/* → https://neuronx.jagatab.uk (proxyTimeout:120000)
+nginx proxy (prod): same paths, proxy_buffering off for SSE, proxy_read_timeout 180s
+
+--- KNOWN BACKEND LIMITATIONS ---
+
+- ai_summary field always empty from search API (LLM at /v1/ fills this role instead)
+- related_searches always empty from search API
+- suggest endpoint intermittently 504 (backend issue, not frontend)
+- Encoding artifacts in some snippets (Â· â€™) — UTF-8 double-encoding from Google
+- Query time: 20–37s for search, additional 10–30s for LLM streaming answer
+
+--- DEV ENVIRONMENT ---
+
+Port:     3002 (npm run dev)
+Start:    cd E:\newfolder4\nx-search && npm run dev
+API key:  VITE_NEURONX_API_KEY set in .env (not committed)
+Tests:    npx vitest run (58 tests, ~2.5s)
+TypeScript: npx tsc --noEmit (0 errors)
+
