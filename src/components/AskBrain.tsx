@@ -8,6 +8,7 @@ import type { SearchResult } from '../types'
 import type { ThreadMessage } from '../hooks/useAIAnswer'
 import { ThreadView } from './ThreadView'
 import { verifyCitations, citationConfidenceScore } from '../lib/verifyCitations'
+import { useAudioOverview } from '../hooks/useAudioOverview'
 
 interface Props {
   query: string
@@ -51,6 +52,7 @@ function parseCitedIndices(answer: string): Set<number> {
 
 export function AskBrain({ query, results, visible, onClose, onFollowUp, explainResult, onExplainDone, thread = [], onClearThread, onExchange }: Props) {
   const { answer, loading, error, ask, abort, reset } = useAskBrain()
+  const audio = useAudioOverview()
   const [lastQuery, setLastQuery] = useState('')
   const [copied, setCopied] = useState(false)
   const [answerStyle, setAnswerStyle] = useState<AnswerStyle>(() => (localStorage.getItem('nx-answer-style') as AnswerStyle) ?? 'detailed')
@@ -137,6 +139,17 @@ export function AskBrain({ query, results, visible, onClose, onFollowUp, explain
               ))}
             </div>
           )}
+          {!loading && answer && audio.supported && (
+            <button
+              onClick={() => audio.state === 'idle' ? audio.speak(answer) : audio.stop()}
+              title={audio.state === 'idle' ? 'Listen to answer' : 'Stop audio'}
+              className={`text-sm transition-colors ${audio.state === 'speaking' ? 'text-amber-400 animate-pulse' : 'text-gray-500 hover:text-amber-400'}`}
+            >
+              {audio.state === 'speaking' ? '⏹' : audio.state === 'paused' ? '▶' : '🔊'}
+            </button>
+          )}
+          {audio.state === 'paused' && <button onClick={audio.resume} className="text-xs text-gray-500 hover:text-amber-400 transition-colors">▶</button>}
+          {audio.state === 'speaking' && <button onClick={audio.pause} className="text-xs text-gray-500 hover:text-amber-400 transition-colors">⏸</button>}
           {!loading && answer && (
             <button onClick={triggerAsk} className="text-xs text-gray-500 hover:text-gray-200 transition-colors" title="Regenerate answer">↺</button>
           )}

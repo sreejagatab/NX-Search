@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { SearchResult } from '../types'
 import { CitationText } from './CitationText'
+import { useAudioOverview } from '../hooks/useAudioOverview'
 
 interface Props {
   summary: string
@@ -15,6 +16,7 @@ interface Props {
 
 export function AISummary({ summary, intent, enginesUsed = [], sources = {}, queryTimeMs, relatedSearches = [], results = [], onRelatedClick }: Props) {
   const [collapsed, setCollapsed] = useState(false)
+  const audio = useAudioOverview()
   if (!summary && !intent) return null
 
   const totalResults = Object.values(sources).reduce((a, b) => a + b, 0)
@@ -38,14 +40,31 @@ export function AISummary({ summary, intent, enginesUsed = [], sources = {}, que
             <span className="text-[10px] text-gray-700">{(queryTimeMs / 1000).toFixed(1)}s</span>
           )}
         </div>
-        {summary && (
-          <button
-            onClick={() => setCollapsed(v => !v)}
-            className="text-xs text-gray-600 hover:text-gray-400 transition-colors shrink-0"
-          >
-            {collapsed ? 'show ▼' : 'hide ▲'}
-          </button>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {summary && audio.supported && (
+            <button
+              onClick={() => audio.state === 'idle' ? audio.speak(summary) : audio.stop()}
+              title={audio.state === 'idle' ? 'Listen to summary' : 'Stop audio'}
+              className={`text-sm transition-colors ${audio.state === 'speaking' ? 'text-amber-400 animate-pulse' : 'text-gray-600 hover:text-amber-400'}`}
+            >
+              {audio.state === 'speaking' ? '⏹' : audio.state === 'paused' ? '▶' : '🔊'}
+            </button>
+          )}
+          {audio.state === 'paused' && (
+            <button onClick={audio.resume} className="text-xs text-gray-600 hover:text-amber-400 transition-colors">▶</button>
+          )}
+          {audio.state === 'speaking' && (
+            <button onClick={audio.pause} className="text-xs text-gray-600 hover:text-amber-400 transition-colors">⏸</button>
+          )}
+          {summary && (
+            <button
+              onClick={() => setCollapsed(v => !v)}
+              className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+            >
+              {collapsed ? 'show ▼' : 'hide ▲'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Source breakdown */}
