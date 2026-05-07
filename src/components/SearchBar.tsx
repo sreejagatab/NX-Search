@@ -9,8 +9,6 @@ interface Props {
   domains?: string[]
   focusMode?: FocusMode
   onQueryChange: (q: string) => void
-  onModeChange?: (m: SearchMode) => void
-  onDomainsChange?: (ds: string[]) => void
   onFocusModeChange?: (m: FocusMode) => void
   onSubmit?: () => void
   autoFocus?: boolean
@@ -184,9 +182,8 @@ export function SearchBar({ query, mode, domains = [], focusMode = 'research', o
 }
 
 const FOCUS_MODES: { mode: FocusMode; label: string; title: string }[] = [
-  { mode: 'research', label: 'Research', title: 'All sources — comprehensive AI answers' },
+  { mode: 'research', label: 'All', title: 'All sources — comprehensive AI answers' },
   { mode: 'web', label: 'Web', title: 'Web results only — concise answers' },
-  { mode: 'code', label: 'Code', title: 'All sources — code-focused AI explanations' },
   { mode: 'quick', label: 'Quick', title: 'Fast results — no AI generation' },
 ]
 

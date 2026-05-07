@@ -3,6 +3,7 @@ import type { SearchResult } from '../types'
 import { DomainBadge } from './DomainFilter'
 import { usePrism } from '../hooks/usePrism'
 import { detectLanguage } from './ResultCard'
+import { highlight } from '../lib/highlight'
 
 interface Props {
   result: SearchResult | null
@@ -10,18 +11,9 @@ interface Props {
   onClose: () => void
 }
 
-function highlight(text: string, query: string): React.ReactNode {
-  if (!query.trim()) return text
-  const words = query.trim().split(/\s+/).filter(Boolean)
-  const pattern = new RegExp(`(${words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi')
-  const parts = text.split(pattern)
-  return parts.map((part, i) =>
-    i % 2 === 1 ? <mark key={i} className="bg-amber-400/20 text-amber-300 rounded px-0.5">{part}</mark> : part
-  )
-}
-
 export function DetailPane({ result, query, onClose }: Props) {
   const [copied, setCopied] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const lang = result ? detectLanguage(result.domain, result.content, result.file_path) : ''
   const codeRef = usePrism(result?.content ?? '', lang)
   const closeRef = useRef<HTMLButtonElement>(null)
@@ -51,11 +43,12 @@ export function DetailPane({ result, query, onClose }: Props) {
     const url = `${window.location.origin}${window.location.pathname}${window.location.search}`.replace(/[?&]result=[^&]*/g, '') +
       (window.location.search.includes('?') ? `&result=${result.id}` : `?result=${result.id}`)
     navigator.clipboard.writeText(url)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 1500)
   }
 
   if (!result) return null
 
-  const pct = Math.round(result.confidence * 100)
   const simPct = Math.round(result.similarity * 100)
 
   return (
@@ -89,25 +82,14 @@ export function DetailPane({ result, query, onClose }: Props) {
           >✕</button>
         </div>
 
-        {/* Scores */}
-        <div className="px-5 py-3 flex items-center gap-4 text-sm border-b border-border shrink-0">
-          <div className="flex-1">
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Similarity</p>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-subtle rounded-full overflow-hidden">
-                <div className="h-full rounded-full bg-amber-400" style={{ width: `${simPct}%` }} />
-              </div>
-              <span className="text-xs text-amber-400 w-8 text-right">{simPct}%</span>
+        {/* Relevance score */}
+        <div className="px-5 py-3 flex items-center gap-3 text-sm border-b border-border shrink-0">
+          <p className="text-[10px] text-gray-600 uppercase tracking-wider shrink-0">Relevance</p>
+          <div className="flex items-center gap-2 flex-1">
+            <div className="flex-1 h-1.5 bg-subtle rounded-full overflow-hidden">
+              <div className={`h-full rounded-full ${simPct >= 70 ? 'bg-green-500' : simPct >= 40 ? 'bg-amber-400' : 'bg-red-500'}`} style={{ width: `${simPct}%` }} />
             </div>
-          </div>
-          <div className="flex-1">
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1">Confidence</p>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 h-1.5 bg-subtle rounded-full overflow-hidden">
-                <div className={`h-full rounded-full ${pct >= 70 ? 'bg-green-500' : pct >= 40 ? 'bg-amber-400' : 'bg-red-500'}`} style={{ width: `${pct}%` }} />
-              </div>
-              <span className="text-xs text-gray-400 w-8 text-right">{pct}%</span>
-            </div>
+            <span className="text-xs text-amber-400 w-8 text-right">{simPct}%</span>
           </div>
         </div>
 
@@ -140,7 +122,7 @@ export function DetailPane({ result, query, onClose }: Props) {
             onClick={shareResult}
             className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:text-gray-200 border border-border transition-colors"
             title="Copy share link"
-          >Share ↗</button>
+          >{linkCopied ? '✓ Link copied!' : 'Share ↗'}</button>
           <button
             onClick={copy}
             className="text-sm px-4 py-2 rounded-lg bg-amber-400/10 text-amber-400 hover:bg-amber-400/20 transition-colors border border-amber-400/20"

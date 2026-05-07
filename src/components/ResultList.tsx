@@ -99,7 +99,7 @@ export function ResultList({
   if (!query) return null
 
   return (
-    <div className={isStale ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
+    <div>
       {/* Controls row */}
       <div className="flex items-center gap-3 mb-3 flex-wrap">
         {/* Search within */}
@@ -182,7 +182,7 @@ export function ResultList({
       )}
 
       {clustered ? (
-        <div className="space-y-4" aria-busy={loading}>
+        <div className={`space-y-4 transition-opacity ${isStale ? 'opacity-40 pointer-events-none' : ''}`} aria-busy={loading}>
           {clusters.map(cluster => {
             const collapsed = collapsedClusters.has(cluster.id)
             return (
@@ -220,7 +220,7 @@ export function ResultList({
           })}
         </div>
       ) : (
-        <div className={compact ? 'grid grid-cols-1 lg:grid-cols-2 gap-2' : 'space-y-3'} aria-busy={loading}>
+        <div className={`transition-opacity ${isStale ? 'opacity-40 pointer-events-none' : ''} ${compact ? 'grid grid-cols-1 lg:grid-cols-2 gap-2' : 'space-y-3'}`} aria-busy={loading}>
           {results.map((r, i) => (
             <ResultCard
               key={r.id}

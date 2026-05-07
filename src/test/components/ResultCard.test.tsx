@@ -40,8 +40,7 @@ describe('ResultCard', () => {
     render(<ResultCard result={mockResult} query="" />)
     const card = screen.getByTestId('result-card')
     fireEvent.click(card)
-    expect(screen.getByText(/Similarity/)).toBeTruthy()
-    expect(screen.getByText(/Confidence/)).toBeTruthy()
+    expect(screen.getByText(/Relevance/)).toBeTruthy()
   })
 
   it('closes modal on ✕ click', () => {

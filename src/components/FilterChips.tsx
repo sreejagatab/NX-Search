@@ -11,11 +11,12 @@ interface Props {
   onSetSort: (s: SortField) => void
   onResetConfidence: () => void
   onRemoveSource: (s: string) => void
+  onClearAll?: () => void
 }
 
 export function FilterChips({
   domains, mode, sort, minConfidence, activeSources,
-  onRemoveDomain, onSetMode, onSetSort, onResetConfidence, onRemoveSource,
+  onRemoveDomain, onSetMode, onSetSort, onResetConfidence, onRemoveSource, onClearAll,
 }: Props) {
   const chips: { label: string; onRemove: () => void }[] = []
 
@@ -45,6 +46,14 @@ export function FilterChips({
           </button>
         </span>
       ))}
+      {chips.length > 1 && onClearAll && (
+        <button
+          onClick={onClearAll}
+          className="text-[10px] text-gray-600 hover:text-red-400 transition-colors shrink-0 ml-1 underline underline-offset-2"
+        >
+          Clear all
+        </button>
+      )}
     </div>
   )
 }

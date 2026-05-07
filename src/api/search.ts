@@ -141,8 +141,7 @@ const ANSWER_STYLE_PROMPTS: Record<AnswerStyle, string> = {
 const FOCUS_PROMPTS: Record<FocusMode, string> = {
   research: 'You are a comprehensive research assistant. Synthesize information across sources with depth and accuracy.',
   web: 'You are a factual web search assistant. Prioritize accuracy, recency, and information directly from the web results.',
-  code: 'You are an expert software developer. Focus on code patterns, technical implementation, best practices, and include usage examples where relevant.',
-  quick: '', // Quick mode disables AI entirely
+  quick: '',
 }
 
 // AI Mode — calls the NeuronX vLLM at /v1/chat/completions with top results as context.

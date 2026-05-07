@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react'
 import type { SearchResult } from '../types'
 import { DomainBadge, DOMAIN_BORDER_COLOR } from './DomainFilter'
 import { usePrism } from '../hooks/usePrism'
+import { highlight } from '../lib/highlight'
 
 interface Props {
   result: SearchResult
@@ -17,16 +18,6 @@ interface Props {
   disablePopover?: boolean
 }
 
-function highlight(text: string, query: string): React.ReactNode {
-  if (!query.trim()) return text
-  const words = query.trim().split(/\s+/).filter(Boolean)
-  const pattern = new RegExp(`(${words.map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})`, 'gi')
-  const parts = text.split(pattern)
-  // split with a capture group puts matched text at odd indices
-  return parts.map((part, i) =>
-    i % 2 === 1 ? <mark key={i} className="bg-amber-400/20 text-amber-300 rounded px-0.5">{part}</mark> : part
-  )
-}
 
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(value * 100)
@@ -153,7 +144,7 @@ export function ResultCard({ result, query, index = 0, onRegisterRef, highlightI
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <span className="text-xs text-gray-500">{(result.similarity * 100).toFixed(0)}% rel</span>
+            <span className="text-xs text-gray-500">{(result.similarity * 100).toFixed(0)}%</span>
             {onMoreLike && (
               <button
                 onClick={e => { e.stopPropagation(); onMoreLike(result.content.slice(0, 200)) }}
@@ -230,6 +221,7 @@ function ExpandedModal({ result, query, lang, onClose }: {
   result: SearchResult; query: string; lang: string; onClose: () => void
 }) {
   const [copied, setCopied] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const modalRef = useRef<HTMLDivElement>(null)
   const codeRef = usePrism(result.content, lang)
   const shareUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`.replace(/[?&]result=[^&]*/g, '') + (window.location.search ? `&result=${result.id}` : `?result=${result.id}`)
@@ -243,6 +235,8 @@ function ExpandedModal({ result, query, lang, onClose }: {
 
   const shareResult = () => {
     navigator.clipboard.writeText(shareUrl)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 1500)
   }
 
   // focus trap
@@ -289,8 +283,8 @@ function ExpandedModal({ result, query, lang, onClose }: {
         </div>
 
         <div className="flex items-center gap-4 mb-4 text-sm text-gray-500">
-          <span>Similarity: <strong className="text-gray-300">{(result.similarity * 100).toFixed(1)}%</strong></span>
-          <span>Confidence: <strong className="text-gray-300">{(result.confidence * 100).toFixed(1)}%</strong></span>
+          <span>Relevance: <strong className="text-gray-300">{(result.similarity * 100).toFixed(1)}%</strong></span>
+          {result.source && <span>Source: <strong className="text-gray-300">{result.source}</strong></span>}
         </div>
 
         {lang ? (
@@ -309,7 +303,7 @@ function ExpandedModal({ result, query, lang, onClose }: {
             className="text-xs px-3 py-1.5 rounded-lg text-gray-500 hover:text-gray-200 border border-border transition-colors"
             title="Copy link to this result"
           >
-            Share ↗
+            {linkCopied ? '✓ Link copied!' : 'Share ↗'}
           </button>
           <button
             onClick={copy}

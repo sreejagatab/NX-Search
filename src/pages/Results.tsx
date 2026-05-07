@@ -72,6 +72,18 @@ export function Results() {
     }
   }, [search.loading, search.query, search.allResults])
 
+  // Update browser tab title
+  useEffect(() => {
+    if (search.query && !search.loading && search.total > 0) {
+      document.title = `${search.query} (${search.total}) · NX Search`
+    } else if (search.query && search.loading) {
+      document.title = `Searching… · NX Search`
+    } else {
+      document.title = 'NeuronX Search'
+    }
+    return () => { document.title = 'NeuronX Search' }
+  }, [search.query, search.loading, search.total])
+
   // Trigger AI answer generation only when results are confirmed fresh for the current query
   // Skip generation in Quick focus mode
   useEffect(() => {
@@ -119,6 +131,7 @@ export function Results() {
     const data = {
       query: search.query, mode: search.mode, domains: search.domains,
       timestamp: new Date().toISOString(), total: search.total,
+      ...(aiAnswer.answer ? { ai_answer: aiAnswer.answer, answer_style: answerStyle } : {}),
       results: search.allResults,
     }
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
@@ -208,8 +221,6 @@ export function Results() {
               domains={search.domains}
               focusMode={search.focusMode}
               onQueryChange={search.setQuery}
-              onModeChange={search.setMode}
-              onDomainsChange={search.setDomains}
               onFocusModeChange={search.setFocusMode}
               size="sm"
             />
@@ -287,6 +298,13 @@ export function Results() {
           onSetSort={search.setSort}
           onResetConfidence={() => search.setMinConfidence(0)}
           onRemoveSource={s => search.setActiveSources(search.activeSources.filter(x => x !== s))}
+          onClearAll={() => {
+            search.setDomains([])
+            search.setMode('semantic')
+            search.setSort('similarity')
+            search.setMinConfidence(0)
+            search.setActiveSources([])
+          }}
         />
       </header>
 

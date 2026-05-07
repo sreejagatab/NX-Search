@@ -14,13 +14,13 @@ afterEach(() => {
 
 describe('SearchBar', () => {
   it('renders input element', () => {
-    render(<SearchBar query="" mode="semantic" onQueryChange={vi.fn()} onModeChange={vi.fn()} />)
+    render(<SearchBar query="" mode="semantic" onQueryChange={vi.fn()} />)
     expect(screen.getByTestId('search-input')).toBeTruthy()
   })
 
   it('shows suggestions dropdown when suggestions available', async () => {
     vi.spyOn(searchApi, 'fetchSuggestions').mockResolvedValue({ suggestions: ['python list', 'python dict'] })
-    render(<SearchBar query="" mode="semantic" onQueryChange={vi.fn()} onModeChange={vi.fn()} />)
+    render(<SearchBar query="" mode="semantic" onQueryChange={vi.fn()} />)
     const input = screen.getByTestId('search-input')
     await act(async () => {
       fireEvent.focus(input)
@@ -32,7 +32,7 @@ describe('SearchBar', () => {
 
   it('calls onQueryChange with empty string on Escape', () => {
     const onChange = vi.fn()
-    render(<SearchBar query="test" mode="semantic" onQueryChange={onChange} onModeChange={vi.fn()} />)
+    render(<SearchBar query="test" mode="semantic" onQueryChange={onChange} />)
     const input = screen.getByTestId('search-input')
     fireEvent.keyDown(input, { key: 'Escape' })
     expect(onChange).toHaveBeenCalledWith('')
@@ -40,7 +40,7 @@ describe('SearchBar', () => {
 
   it('calls onSubmit on Enter', () => {
     const onSubmit = vi.fn()
-    render(<SearchBar query="test" mode="semantic" onQueryChange={vi.fn()} onModeChange={vi.fn()} onSubmit={onSubmit} />)
+    render(<SearchBar query="test" mode="semantic" onQueryChange={vi.fn()} onSubmit={onSubmit} />)
     const input = screen.getByTestId('search-input')
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(onSubmit).toHaveBeenCalled()
@@ -53,7 +53,7 @@ describe('SearchBar', () => {
     expect(onFocus).toHaveBeenCalledWith('web')
   })
 
-  it('focus pills: clicking Research calls onFocusModeChange with research', () => {
+  it('focus pills: clicking All calls onFocusModeChange with research', () => {
     const onFocus = vi.fn()
     render(<SearchBar query="" mode="semantic" focusMode="web" onQueryChange={vi.fn()} onFocusModeChange={onFocus} />)
     fireEvent.click(screen.getByTitle('All sources — comprehensive AI answers'))

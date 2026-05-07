@@ -42,17 +42,5 @@ export type SearchMode = 'semantic' | 'pattern' | 'hybrid'
 
 export type SortField = 'similarity' | 'confidence' | 'domain'
 
-export type FocusMode = 'research' | 'web' | 'code' | 'quick'
+export type FocusMode = 'research' | 'web' | 'quick'
 
-export interface SearchState {
-  query: string
-  domain: string
-  mode: SearchMode
-  sort: SortField
-  page: number
-  results: SearchResult[]
-  total: number
-  queryTimeMs: number
-  loading: boolean
-  error: string | null
-}

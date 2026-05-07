@@ -54,9 +54,8 @@ export function CommandPalette({ open, onClose, mode, focusMode, onSetMode, onSe
     { id: 'sort-confidence', label: 'Sort by Confidence', group: 'Sort', icon: '↕', onSelect: () => { onSetSort('confidence'); onClose() } },
     { id: 'sort-domain', label: 'Sort by Domain', group: 'Sort', icon: '↕', onSelect: () => { onSetSort('domain'); onClose() } },
     ...(onSetFocusMode ? [
-      { id: 'focus-research', label: 'Focus: Research — all sources, deep AI', group: 'Focus Mode', icon: '◎', onSelect: () => { onSetFocusMode('research'); onClose() } },
+      { id: 'focus-research', label: 'Focus: All — all sources, deep AI', group: 'Focus Mode', icon: '◎', onSelect: () => { onSetFocusMode('research'); onClose() } },
       { id: 'focus-web', label: 'Focus: Web — web results, concise answers', group: 'Focus Mode', icon: '◎', onSelect: () => { onSetFocusMode('web'); onClose() } },
-      { id: 'focus-code', label: 'Focus: Code — code-focused AI explanations', group: 'Focus Mode', icon: '◎', onSelect: () => { onSetFocusMode('code'); onClose() } },
       { id: 'focus-quick', label: 'Focus: Quick — fastest, no AI', group: 'Focus Mode', icon: '◎', onSelect: () => { onSetFocusMode('quick'); onClose() } },
     ] : []),
     ...(onToggleAiMode ? [{ id: 'ai-mode', label: 'Toggle AI Mode (Alt+A)', group: 'Actions', icon: '✦', onSelect: () => { onToggleAiMode(); onClose() } }] : []),

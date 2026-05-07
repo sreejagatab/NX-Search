@@ -11,7 +11,7 @@ import type { SearchMode } from '../types'
 export function Home() {
   const navigate = useNavigate()
   const [query, setQuery] = useState('')
-  const [mode, setMode] = useState<SearchMode>('semantic')
+  const [mode] = useState<SearchMode>('semantic')
   const [domains, setDomains] = useState<string[]>([])
   const [allDomains, setAllDomains] = useState<string[]>([])
   const [stats, setStats] = useState({ total_patterns: 257000, total_vectors: 210000, domains: {} as Record<string, number> })
@@ -80,7 +80,6 @@ export function Home() {
             mode={mode}
             domains={domains}
             onQueryChange={setQuery}
-            onModeChange={setMode}
             onSubmit={submit}
             autoFocus
             size="lg"
