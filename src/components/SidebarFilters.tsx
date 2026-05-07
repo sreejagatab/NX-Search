@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { DomainFilter } from './DomainFilter'
+import { getBoostedDomains, getBlockedDomains, clearDomainPref } from '../lib/domainPrefs'
 
 interface Props {
   domains: string[]
@@ -43,6 +44,11 @@ export function SidebarFilters({
   const [domainsOpen, setDomainsOpen] = useState(true)
   const [sourcesOpen, setSourcesOpen] = useState(true)
   const [slidersOpen, setSlidersOpen] = useState(true)
+  const [prefsOpen, setPrefsOpen] = useState(false)
+  const [boosted, setBoosted] = useState(getBoostedDomains)
+  const [blocked, setBlocked] = useState(getBlockedDomains)
+
+  function refreshPrefs() { setBoosted(getBoostedDomains()); setBlocked(getBlockedDomains()) }
 
   return (
     <div className="space-y-5">
@@ -111,6 +117,34 @@ export function SidebarFilters({
           </div>
         )}
       </div>
+
+      {/* Domain preferences */}
+      {(boosted.length > 0 || blocked.length > 0) && (
+        <div>
+          <SectionHeader
+            label="Domain Prefs"
+            count={boosted.length + blocked.length}
+            open={prefsOpen}
+            onToggle={() => setPrefsOpen(v => !v)}
+          />
+          {prefsOpen && (
+            <div className="space-y-1">
+              {boosted.map(d => (
+                <div key={d} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-green-950/20 border border-green-800/20">
+                  <span className="flex items-center gap-1.5 text-green-400/80"><span>↑</span>{d}</span>
+                  <button onClick={() => { clearDomainPref(d); refreshPrefs() }} className="text-gray-600 hover:text-red-400 transition-colors">✕</button>
+                </div>
+              ))}
+              {blocked.map(d => (
+                <div key={d} className="flex items-center justify-between text-xs py-1 px-2 rounded bg-red-950/20 border border-red-800/20">
+                  <span className="flex items-center gap-1.5 text-red-400/80 line-through"><span>✕</span>{d}</span>
+                  <button onClick={() => { clearDomainPref(d); refreshPrefs() }} className="text-gray-600 hover:text-gray-300 transition-colors">↺</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Source filter */}
       {sources.length > 0 && (

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { searchPatterns, searchSemantic, searchHybrid } from '../api/search'
 import { parseOperators } from '../lib/parseOperators'
+import { getBoostedDomains, getBlockedDomains } from '../lib/domainPrefs'
 import type { SearchResult, SearchMode, SortField, FocusMode } from '../types'
 
 export const DISPLAY_PAGE_SIZE = 10  // 2 pages of 10 from max-20 API results
@@ -263,11 +264,20 @@ export function useSearch() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredResults.length, results.length, loading, minConfidence, localFilter, activeSources, excludedDomains])
 
-  const sortedResults = useMemo(() => [...filteredResults].sort((a, b) => {
-    if (sort === 'confidence') return b.confidence - a.confidence
-    if (sort === 'domain') return a.domain.localeCompare(b.domain)
-    return b.similarity - a.similarity
-  }), [filteredResults, sort])
+  const sortedResults = useMemo(() => {
+    const boosted = getBoostedDomains()
+    const blocked = getBlockedDomains()
+    return [...filteredResults]
+      .filter(r => !blocked.includes(r.domain.toLowerCase()))
+      .sort((a, b) => {
+        const aBoosted = boosted.includes(a.domain.toLowerCase()) ? 1 : 0
+        const bBoosted = boosted.includes(b.domain.toLowerCase()) ? 1 : 0
+        if (aBoosted !== bBoosted) return bBoosted - aBoosted
+        if (sort === 'confidence') return b.confidence - a.confidence
+        if (sort === 'domain') return a.domain.localeCompare(b.domain)
+        return b.similarity - a.similarity
+      })
+  }, [filteredResults, sort])
 
   const start = (page - 1) * pageSize
   const pagedResults = useMemo(() => sortedResults.slice(start, start + pageSize), [sortedResults, start, pageSize])

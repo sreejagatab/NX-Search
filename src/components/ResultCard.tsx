@@ -3,6 +3,7 @@ import type { SearchResult } from '../types'
 import { DomainBadge, DOMAIN_BORDER_COLOR } from './DomainFilter'
 import { usePrism } from '../hooks/usePrism'
 import { highlight } from '../lib/highlight'
+import { boostDomain, blockDomain, clearDomainPref, getBoostedDomains, getBlockedDomains } from '../lib/domainPrefs'
 
 interface Props {
   result: SearchResult
@@ -65,6 +66,10 @@ export function ResultCard({ result, query, index = 0, onRegisterRef, highlightI
   const [snippetExpanded, setSnippetExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
   const [popoverVisible, setPopoverVisible] = useState(false)
+  const domain = result.domain.toLowerCase()
+  const [domainPref, setDomainPref] = useState<'boosted' | 'blocked' | null>(() =>
+    getBoostedDomains().includes(domain) ? 'boosted' : getBlockedDomains().includes(domain) ? 'blocked' : null
+  )
   const cardRef = useRef<HTMLElement | null>(null)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isHighlighted = highlightId === result.id
@@ -138,7 +143,23 @@ export function ResultCard({ result, query, index = 0, onRegisterRef, highlightI
         )}
         <div className="flex items-start justify-between gap-3 mb-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <DomainBadge domain={result.domain} />
+            <div className="flex items-center gap-1">
+              <DomainBadge domain={result.domain} />
+              {domainPref === 'boosted' && <span className="text-[9px] text-green-400" title="Boosted domain">↑</span>}
+              {domainPref === 'blocked' && <span className="text-[9px] text-red-400" title="Blocked domain">✕</span>}
+              <span className="opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-0.5">
+                <button
+                  onClick={e => { e.stopPropagation(); if (domainPref === 'boosted') { clearDomainPref(domain); setDomainPref(null) } else { boostDomain(domain); setDomainPref('boosted') } }}
+                  title={domainPref === 'boosted' ? 'Remove boost' : 'Boost this domain (always show first)'}
+                  className={`text-[9px] px-1 py-0.5 rounded transition-colors ${domainPref === 'boosted' ? 'text-green-400 bg-green-400/10' : 'text-gray-600 hover:text-green-400'}`}
+                >↑</button>
+                <button
+                  onClick={e => { e.stopPropagation(); if (domainPref === 'blocked') { clearDomainPref(domain); setDomainPref(null) } else { blockDomain(domain); setDomainPref('blocked') } }}
+                  title={domainPref === 'blocked' ? 'Remove block' : 'Block this domain (never show)'}
+                  className={`text-[9px] px-1 py-0.5 rounded transition-colors ${domainPref === 'blocked' ? 'text-red-400 bg-red-400/10' : 'text-gray-600 hover:text-red-400'}`}
+                >✕</button>
+              </span>
+            </div>
             {result.source && (
               <span className="text-xs text-gray-500 border border-border rounded px-1.5 py-0.5">{result.source}</span>
             )}
