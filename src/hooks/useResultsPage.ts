@@ -8,6 +8,7 @@ import { useSearch } from './useSearch'
 import { useAIAnswer } from './useAIAnswer'
 import type { SearchResult } from '../types'
 import type { Lens } from '../lib/lenses'
+import { logZeroResult } from '../lib/zeroResults'
 
 export function useResultsPage() {
   const search = useSearch()
@@ -74,6 +75,13 @@ export function useResultsPage() {
       return merged
     })
   }, [search.allResults])
+
+  // Log zero-result queries
+  useEffect(() => {
+    if (search.query && !search.loading && search.total === 0 && !search.error) {
+      logZeroResult({ q: search.query, mode: search.mode, domains: search.domains })
+    }
+  }, [search.query, search.loading, search.total, search.error, search.mode, search.domains])
 
   // Save to recent searches after results land
   useEffect(() => {

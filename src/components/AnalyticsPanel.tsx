@@ -1,5 +1,6 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { getRecent } from '../lib/recentSearches'
+import { getZeroResults, clearZeroResults } from '../lib/zeroResults'
 
 interface Props {
   open: boolean
@@ -7,7 +8,9 @@ interface Props {
 }
 
 export function AnalyticsPanel({ open, onClose }: Props) {
+  const [tab, setTab] = useState<'stats' | 'zero'>('stats')
   const recent = useMemo(() => getRecent(), [open])
+  const zeroResults = useMemo(() => getZeroResults(), [open])
 
   const stats = useMemo(() => {
     if (recent.length === 0) return null
@@ -51,11 +54,20 @@ export function AnalyticsPanel({ open, onClose }: Props) {
         aria-label="Search analytics"
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-          <h2 className="text-sm font-semibold text-gray-200">Search Analytics</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-sm font-semibold text-gray-200">Analytics</h2>
+            <div className="flex gap-1 bg-subtle rounded-lg p-0.5">
+              <button onClick={() => setTab('stats')} className={`text-xs px-2.5 py-1 rounded transition-colors ${tab === 'stats' ? 'bg-card text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}>Stats</button>
+              <button onClick={() => setTab('zero')} className={`text-xs px-2.5 py-1 rounded transition-colors flex items-center gap-1 ${tab === 'zero' ? 'bg-card text-amber-400' : 'text-gray-500 hover:text-gray-300'}`}>
+                Zero Results
+                {zeroResults.length > 0 && <span className="bg-red-500/20 text-red-400 text-[9px] rounded-full px-1 min-w-[16px] text-center">{zeroResults.length}</span>}
+              </button>
+            </div>
+          </div>
           <button onClick={onClose} className="text-gray-500 hover:text-gray-200 transition-colors">✕</button>
         </div>
 
-        {!stats ? (
+        {tab === 'stats' && (!stats ? (
           <div className="flex-1 flex items-center justify-center text-gray-600 text-sm">No search history yet</div>
         ) : (
           <div className="px-5 py-4 space-y-6">
@@ -134,6 +146,37 @@ export function AnalyticsPanel({ open, onClose }: Props) {
                 ))}
               </div>
             </div>
+          </div>
+        ))}
+
+        {tab === 'zero' && (
+          <div className="px-5 py-4 space-y-4 flex-1">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                {zeroResults.length === 0 ? 'No zero-result queries yet' : `${zeroResults.length} queries returned no results`}
+              </p>
+              {zeroResults.length > 0 && (
+                <button
+                  onClick={() => { clearZeroResults(); window.location.reload() }}
+                  className="text-[10px] text-gray-700 hover:text-red-400 transition-colors"
+                >Clear</button>
+              )}
+            </div>
+            {zeroResults.length > 0 && (
+              <div className="space-y-1">
+                {zeroResults.map((r, i) => (
+                  <div key={i} className="bg-subtle border border-border rounded-lg px-3 py-2">
+                    <p className="text-sm text-gray-300 truncate">"{r.q}"</p>
+                    <p className="text-[10px] text-gray-600 mt-0.5">
+                      {r.mode} · {r.domains.length ? r.domains.join(', ') : 'all domains'} · {new Date(r.timestamp).toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {zeroResults.length > 0 && (
+              <p className="text-[10px] text-gray-700 pt-2">These queries found no content — consider adding them to the index.</p>
+            )}
           </div>
         )}
       </aside>

@@ -30,6 +30,10 @@ interface Props {
   onExplain?: (result: SearchResult) => void
   compact?: boolean
   detailOpen?: boolean
+  relatedSearches?: string[]
+  onRelatedClick?: (q: string) => void
+  mode?: string
+  domains?: string[]
 }
 
 const SORT_OPTIONS: { value: SortField; label: string }[] = [
@@ -44,6 +48,7 @@ export function ResultList({
   results, query, loading, isStale, error, total, filteredCount, page, totalPages,
   sort, pageSize, localFilter, onLocalFilterChange,
   onPageChange, onSortChange, onPageSizeChange, onRetry, highlightId, onMoreLike, onCardClick, onExplain, compact, detailOpen,
+  relatedSearches = [], onRelatedClick, mode, domains = [],
 }: Props) {
   const { setCardRef } = useResultKeyboard(results, { onOpen: onCardClick, onExplain })
   const filterInputRef = useRef<HTMLInputElement>(null)
@@ -93,7 +98,7 @@ export function ResultList({
   }
 
   if (!loading && query && results.length === 0 && !localFilter) {
-    return <EmptyState query={query} />
+    return <EmptyState query={query} relatedSearches={relatedSearches} onRelatedClick={onRelatedClick} mode={mode} domains={domains} />
   }
 
   if (!query) return null
@@ -257,26 +262,79 @@ export function ResultList({
   )
 }
 
-function EmptyState({ query }: { query: string }) {
-  const tips = [
-    'Use fewer or simpler keywords',
-    'Remove domain: or source: filters if active',
-    'Try "Research" or "Web" focus mode from the search bar',
-    'Use "≈ More" on a related result to find similar content',
-  ]
+function EmptyState({ query, relatedSearches, onRelatedClick, mode, domains }: {
+  query: string
+  relatedSearches?: string[]
+  onRelatedClick?: (q: string) => void
+  mode?: string
+  domains?: string[]
+}) {
+  const [reported, setReported] = useState(false)
+
+  function reportMissing() {
+    const text = `[Missing content] "${query}" | mode:${mode ?? 'semantic'} | domains:${domains?.join(',') || 'all'}`
+    navigator.clipboard.writeText(text).catch(() => {})
+    setReported(true)
+    setTimeout(() => setReported(false), 2500)
+  }
+
+  const tips: string[] = []
+  if (domains && domains.length > 0) tips.push('Remove the domain filter to search all sources')
+  if (mode === 'pattern') tips.push('Try Semantic or Hybrid mode for broader matching')
+  tips.push('Use fewer or simpler keywords')
+  tips.push('Check spelling or try synonyms')
+
   return (
-    <div className="text-center py-16 px-4">
-      <div className="text-5xl mb-4 opacity-30">◎</div>
-      <p className="text-lg text-gray-300 mb-1">No results for <span className="text-amber-400/80">"{query}"</span></p>
-      <p className="text-sm text-gray-600 mb-6">The search ran but found nothing matching your query.</p>
-      <ul className="inline-flex flex-col gap-2 text-left text-sm text-gray-500">
-        {tips.map(tip => (
-          <li key={tip} className="flex items-start gap-2">
-            <span className="text-amber-400/40 shrink-0 mt-0.5">›</span>
-            {tip}
-          </li>
-        ))}
-      </ul>
+    <div className="py-14 px-4">
+      <div className="text-center mb-8">
+        <div className="text-5xl mb-4 opacity-20">◎</div>
+        <p className="text-lg text-gray-300 mb-1">No results for <span className="text-amber-400/80">"{query}"</span></p>
+        <p className="text-sm text-gray-600">The search ran but found nothing matching your query.</p>
+      </div>
+
+      <div className="max-w-md mx-auto space-y-6">
+        {/* Suggestions */}
+        <div>
+          <p className="text-xs text-gray-600 uppercase tracking-wider mb-2">Suggestions</p>
+          <ul className="space-y-1.5">
+            {tips.map(tip => (
+              <li key={tip} className="flex items-start gap-2 text-sm text-gray-500">
+                <span className="text-amber-400/40 shrink-0 mt-0.5">›</span>
+                {tip}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Related searches from API */}
+        {relatedSearches && relatedSearches.length > 0 && onRelatedClick && (
+          <div>
+            <p className="text-xs text-gray-600 uppercase tracking-wider mb-2">Try instead</p>
+            <div className="flex flex-col gap-1">
+              {relatedSearches.slice(0, 4).map(s => (
+                <button
+                  key={s}
+                  onClick={() => onRelatedClick(s)}
+                  className="text-left text-sm text-gray-400 hover:text-amber-400 transition-colors py-1 px-2 rounded hover:bg-subtle"
+                >
+                  → {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Report missing */}
+        <div className="pt-2 border-t border-border">
+          <button
+            onClick={reportMissing}
+            className="text-xs text-gray-700 hover:text-gray-400 transition-colors"
+            title="Copy a report to clipboard"
+          >
+            {reported ? '✓ Copied to clipboard' : 'Report missing content'}
+          </button>
+        </div>
+      </div>
     </div>
   )
 }

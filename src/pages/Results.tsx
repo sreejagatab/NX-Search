@@ -258,6 +258,10 @@ export function Results() {
               onExplain={p.handleExplain}
               compact={p.aiMode}
               detailOpen={p.detailResult !== null}
+              relatedSearches={search.relatedSearches}
+              onRelatedClick={q => { search.setQuery(q); search.setPage(1) }}
+              mode={search.mode}
+              domains={search.domains}
             />
           </ErrorBoundary>
         </main>
