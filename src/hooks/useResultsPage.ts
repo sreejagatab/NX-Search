@@ -22,6 +22,7 @@ export function useResultsPage() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [analyticsOpen, setAnalyticsOpen] = useState(false)
   const [collectionsOpen, setCollectionsOpen] = useState(false)
+  const [urlSummaryOpen, setUrlSummaryOpen] = useState(false)
   const [theme, setThemeState] = useState<Theme>(getTheme)
   const [aiMode, setAiMode] = useState(() => localStorage.getItem('nx-ai-mode') === '1')
   const [answerStyle, setAnswerStyle] = useState<AnswerStyle>(
@@ -185,6 +186,7 @@ export function useResultsPage() {
     // setters
     setAskVisible, setFiltersOpen, setSidebarOpen,
     setDetailResult, setExplainResult, setPaletteOpen, setAnalyticsOpen, setCollectionsOpen,
+    urlSummaryOpen, setUrlSummaryOpen,
     // handlers
     toggleAiMode, handleAnswerStyleChange, cycleTheme,
     openAnalytics, openCollections,

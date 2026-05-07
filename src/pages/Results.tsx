@@ -15,6 +15,7 @@ import { AnalyticsPanel } from '../components/AnalyticsPanel'
 import { AISummary } from '../components/AISummary'
 import { AIModeCard } from '../components/AIModeCard'
 import { CollectionsPanel } from '../components/CollectionsPanel'
+import { UrlSummarizer } from '../components/UrlSummarizer'
 import { useResultsPage } from '../hooks/useResultsPage'
 
 export function Results() {
@@ -45,6 +46,11 @@ export function Results() {
         currentQuery={p.aiAnswer.answer ? search.query : undefined}
         currentAnswer={p.aiAnswer.answer || undefined}
         currentResults={search.allResults}
+      />
+      <UrlSummarizer
+        open={p.urlSummaryOpen}
+        onClose={() => p.setUrlSummaryOpen(false)}
+        onSearch={q => { search.setQuery(q); p.setUrlSummaryOpen(false) }}
       />
       <OfflineBanner />
       <ProgressBar loading={search.loading} />
@@ -80,6 +86,10 @@ export function Results() {
             <button onClick={p.openAnalytics} title="Search analytics"
               className={`px-2.5 py-2 transition-colors text-sm ${p.analyticsOpen ? 'text-amber-400 bg-amber-400/10' : 'text-gray-500 hover:text-gray-200 hover:bg-subtle'}`}>
               📊
+            </button>
+            <button onClick={() => p.setUrlSummaryOpen(true)} title="Summarize a URL"
+              className={`px-2.5 py-2 transition-colors text-sm ${p.urlSummaryOpen ? 'text-amber-400 bg-amber-400/10' : 'text-gray-500 hover:text-gray-200 hover:bg-subtle'}`}>
+              🔗
             </button>
             <button onClick={p.openCollections} title="Saved answers (Alt+C)"
               className={`px-2.5 py-2 transition-colors text-sm ${p.collectionsOpen ? 'text-amber-400 bg-amber-400/10' : 'text-gray-500 hover:text-gray-200 hover:bg-subtle'}`}>
