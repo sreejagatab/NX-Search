@@ -244,6 +244,14 @@ export function useSearch() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [displayBase, effectiveMinConfidence, effectiveMaxConfidence, rawDomains, activeSources, localFilter, excludedDomains, excludedSources, ops])
 
+  // Reset to page 1 when filtered results drop below the current page's range
+  useEffect(() => {
+    if (page > 1 && filteredResults.length > 0 && filteredResults.length <= (page - 1) * pageSize) {
+      setPage(1)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredResults.length, page, pageSize])
+
   // When strict filters leave fewer than 5 visible results and the server has more,
   // fetch the next batch (page 2) and merge it into the pool.
   const fetchMoreRef = useRef(false)

@@ -1,10 +1,17 @@
 import { useState, useRef, useEffect } from 'react'
+import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 import type { SearchResult } from '../types'
 import { ANSWER_STYLES } from '../api/search'
 import type { AnswerStyle } from '../api/search'
 import { usePeopleAlsoAsk } from '../hooks/usePeopleAlsoAsk'
 import { saveAnswer, isSaved } from '../lib/collections'
 import { CitationText } from './CitationText'
+
+function renderMarkdown(text: string): string {
+  const raw = marked.parse(text, { async: false }) as string
+  return DOMPurify.sanitize(raw, { USE_PROFILES: { html: true } })
+}
 
 interface Props {
   summary: string
@@ -81,7 +88,7 @@ export function AIModeCard({
     ? Math.round(intentConfidence * 100)
     : null
 
-  const paragraphs = displayText ? displayText.split(/\n\n+/).filter(Boolean) : []
+  const summaryParagraphs = !answer && summary ? summary.split(/\n\n+/).filter(Boolean) : []
 
   return (
     <div className="relative p-px rounded-2xl bg-gradient-to-r from-amber-400/50 via-violet-500/40 to-amber-400/50 mb-6 shadow-lg shadow-amber-400/5 max-w-2xl">
@@ -174,26 +181,33 @@ export function AIModeCard({
         )}
 
         {/* Answer body — streaming or complete */}
-        {(isStreaming || paragraphs.length > 0 || answerError) && (
-          <div className="px-5 py-4 space-y-3">
+        {(isStreaming || answer || summaryParagraphs.length > 0 || answerError) && (
+          <div className="px-5 py-4">
             {answerError && (
               <p className="text-sm text-red-400">{answerError}</p>
             )}
-            {isStreaming && paragraphs.length === 0 && !answerError && (
+            {isStreaming && !answer && !answerError && (
               <div className="flex items-center gap-2 text-sm text-gray-500">
                 <span className="inline-block w-1.5 h-4 bg-amber-400 rounded animate-pulse" />
                 Generating answer…
               </div>
             )}
-            {paragraphs.map((para, pi) => (
-              <p key={pi} className="text-sm text-gray-300 leading-relaxed">
-                <CitationText text={para} results={results} />
-                {/* streaming cursor on last paragraph */}
-                {isStreaming && pi === paragraphs.length - 1 && (
-                  <span className="inline-block w-0.5 h-4 bg-amber-400 rounded animate-pulse align-middle ml-0.5" />
-                )}
-              </p>
-            ))}
+            {answer ? (
+              <div
+                className="prose-dark text-sm leading-relaxed"
+                dangerouslySetInnerHTML={{
+                  __html: renderMarkdown(answer) + (isStreaming ? '<span class="inline-block w-0.5 h-4 bg-amber-400 rounded animate-pulse align-middle ml-0.5"></span>' : '')
+                }}
+              />
+            ) : summaryParagraphs.length > 0 ? (
+              <div className="space-y-3">
+                {summaryParagraphs.map((para, pi) => (
+                  <p key={pi} className="text-sm text-gray-300 leading-relaxed">
+                    <CitationText text={para} results={results} />
+                  </p>
+                ))}
+              </div>
+            ) : null}
           </div>
         )}
 
