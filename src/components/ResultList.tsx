@@ -45,7 +45,7 @@ export function ResultList({
   sort, pageSize, localFilter, onLocalFilterChange,
   onPageChange, onSortChange, onPageSizeChange, onRetry, highlightId, onMoreLike, onCardClick, onExplain, compact, detailOpen,
 }: Props) {
-  const { setCardRef } = useResultKeyboard(results.length)
+  const { setCardRef } = useResultKeyboard(results, { onOpen: onCardClick, onExplain })
   const filterInputRef = useRef<HTMLInputElement>(null)
   const [clustered, setClustered] = useState(false)
   const [collapsedClusters, setCollapsedClusters] = useState<Set<string>>(new Set())
@@ -165,6 +165,17 @@ export function ResultList({
           ))}
         </div>
       </div>
+
+      {/* Keyboard hint */}
+      {results.length > 0 && !compact && (
+        <div className="hidden lg:flex items-center gap-3 text-[10px] text-gray-700 mb-2 px-0.5">
+          <span><kbd className="border border-gray-700 rounded px-1 font-mono">j</kbd><kbd className="border border-gray-700 rounded px-1 font-mono ml-0.5">k</kbd> navigate</span>
+          <span><kbd className="border border-gray-700 rounded px-1 font-mono">o</kbd> open</span>
+          <span><kbd className="border border-gray-700 rounded px-1 font-mono">e</kbd> explain</span>
+          <span><kbd className="border border-gray-700 rounded px-1 font-mono">c</kbd> copy</span>
+          <span><kbd className="border border-gray-700 rounded px-1 font-mono">/</kbd> focus search</span>
+        </div>
+      )}
 
       {localFilter && filteredCount === 0 && (
         <p className="text-sm text-gray-500 py-8 text-center">No results match "{localFilter}"</p>

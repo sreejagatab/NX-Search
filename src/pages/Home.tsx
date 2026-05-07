@@ -87,6 +87,27 @@ export function Home() {
           />
         </div>
 
+        {/* Example queries — shown when no query typed */}
+        {!query && (
+          <div className="w-full mb-4 flex flex-wrap gap-2 justify-center">
+            {[
+              'semantic search in Python',
+              'REST API design patterns',
+              'SQL query optimization',
+              'async error handling',
+              'authentication best practices',
+            ].map(ex => (
+              <button
+                key={ex}
+                onClick={() => navigate(`/search?q=${encodeURIComponent(ex)}&mode=${mode}`)}
+                className="text-xs px-3 py-1.5 rounded-full border border-border text-gray-500 hover:border-amber-400/40 hover:text-amber-400 transition-colors bg-card"
+              >
+                {ex}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Domain pills — single horizontal scrollable row */}
         {allDomains.length > 0 && (
           <div className="w-full mb-6 overflow-x-auto scrollbar-none pb-1">
