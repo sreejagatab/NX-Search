@@ -43,6 +43,16 @@ jobs:
             dist/ \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
 
+      - name: Deploy nginx config
+        continue-on-error: true
+        run: |
+          scp -i ~/.ssh/deploy_key \
+            nginx.conf \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/tmp/nx-search-nginx.conf
+          ssh -i ~/.ssh/deploy_key \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
+            "sudo cp /tmp/nx-search-nginx.conf /etc/nginx/sites-available/nx-search.jagatab.uk && sudo nginx -t"
+
       - name: Reload nginx
         run: |
           ssh -i ~/.ssh/deploy_key \
