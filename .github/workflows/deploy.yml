@@ -42,16 +42,15 @@ jobs:
           ssh -i ~/.ssh/deploy_key \
             ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
             set -e
-            docker load < /tmp/nx-search.tar.gz
-            docker stop deploy-nginx-1 2>/dev/null || true
-            docker rm   deploy-nginx-1 2>/dev/null || true
-            # Free port 3002 if anything else holds it
-            fuser -k 3002/tcp 2>/dev/null || true
-            docker run -d \
+            sudo docker load < /tmp/nx-search.tar.gz
+            sudo docker stop deploy-nginx-1 2>/dev/null || true
+            sudo docker rm   deploy-nginx-1 2>/dev/null || true
+            sudo fuser -k 3002/tcp 2>/dev/null || true
+            sudo docker run -d \
               --name deploy-nginx-1 \
               -p 3002:80 \
               --restart unless-stopped \
               nx-search:latest
             rm -f /tmp/nx-search.tar.gz
-            docker ps --filter name=deploy-nginx-1
+            sudo docker ps --filter name=deploy-nginx-1
           EOF
