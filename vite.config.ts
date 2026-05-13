@@ -36,5 +36,21 @@ export default defineConfig({
   },
   preview: {
     port: 3002,
+    proxy: {
+      '/api': {
+        target: 'https://neuronx.jagatab.uk',
+        changeOrigin: true,
+        secure: true,
+        proxyTimeout: 120000,
+        timeout: 120000,
+      },
+      '/v1': {
+        target: 'https://neuronx.jagatab.uk',
+        changeOrigin: true,
+        secure: true,
+        proxyTimeout: 120000,
+        timeout: 120000,
+      },
+    },
   },
 })
