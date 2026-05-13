@@ -2,15 +2,15 @@ version: '3.9'
 
 services:
   nx-search:
-    build: .
+    build:
+      context: .
+      args:
+        VITE_NEURONX_API_KEY: ${VITE_NEURONX_API_KEY}
     ports:
-      - "3002:3002"
-    environment:
-      - VITE_NEURONX_API_URL=${VITE_NEURONX_API_URL:-https://neuronx.jagatab.uk}
-      - VITE_NEURONX_API_KEY=${VITE_NEURONX_API_KEY}
+      - "3002:80"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:3002"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:80"]
       interval: 30s
       timeout: 5s
       retries: 3

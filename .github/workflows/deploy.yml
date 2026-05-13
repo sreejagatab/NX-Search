@@ -16,18 +16,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build
-        run: npm run build
-        env:
-          VITE_NEURONX_API_KEY: ${{ secrets.VITE_NEURONX_API_KEY }}
+      - name: Build Docker image
+        run: |
+          docker build \
+            --build-arg VITE_NEURONX_API_KEY=${{ secrets.VITE_NEURONX_API_KEY }} \
+            -t nx-search:latest .
+          docker save nx-search:latest | gzip > /tmp/nx-search.tar.gz
+          echo "Image size: $(du -sh /tmp/nx-search.tar.gz | cut -f1)"
 
       - name: Set up SSH
         run: |
@@ -36,24 +31,27 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           echo "StrictHostKeyChecking accept-new" >> ~/.ssh/config
 
-      - name: Deploy via rsync
-        run: |
-          rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key" \
-            dist/ \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:${{ secrets.DEPLOY_PATH }}/
-
-      - name: Deploy nginx config
+      - name: Upload Docker image to server
         run: |
           scp -i ~/.ssh/deploy_key \
-            nginx.conf \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/tmp/nx-search-nginx.conf
-          ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "sudo cp /tmp/nx-search-nginx.conf /etc/nginx/sites-available/nx-search.jagatab.uk && sudo nginx -t 2>&1"
+            /tmp/nx-search.tar.gz \
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}:/tmp/nx-search.tar.gz
 
-      - name: Reload nginx
+      - name: Deploy container
         run: |
           ssh -i ~/.ssh/deploy_key \
-            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} \
-            "sudo /usr/local/bin/reload-nginx"
+            ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} << 'EOF'
+            set -e
+            docker load < /tmp/nx-search.tar.gz
+            docker stop deploy-nginx-1 2>/dev/null || true
+            docker rm   deploy-nginx-1 2>/dev/null || true
+            # Free port 3002 if anything else holds it
+            fuser -k 3002/tcp 2>/dev/null || true
+            docker run -d \
+              --name deploy-nginx-1 \
+              -p 3002:80 \
+              --restart unless-stopped \
+              nx-search:latest
+            rm -f /tmp/nx-search.tar.gz
+            docker ps --filter name=deploy-nginx-1
+          EOF
